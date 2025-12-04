@@ -4,16 +4,17 @@
   "public": true,
   "cleanUrls": true,
   "trailingSlash": false,
-  "headers": [
+  "rewrites": [
     {
-      "source": "/(.*)",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=0, must-revalidate"
-        }
-      ]
+      "source": "/api/(.*)",
+      "destination": "https://swar-yoga-dec.onrender.com/api/$1"
     },
+    {
+      "source": "/:path((?!_redirects).*)",
+      "destination": "/index.html"
+    }
+  ],
+  "headers": [
     {
       "source": "/assets/(.*)",
       "headers": [
