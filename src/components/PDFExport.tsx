@@ -61,7 +61,7 @@ const PDFExport = () => {
       
       if (selectedExport === 'vision') {
         // Fetch visions from backend
-        const response = await fetch('http://localhost:4000/api/visions');
+        const response = await fetch('https://swar-yoga-dec.onrender.com/api/visions');
         visionsList = await response.json();
         
         const filteredVisions = selectedVision === 'all' 
@@ -77,7 +77,7 @@ const PDFExport = () => {
         };
       } else if (selectedExport === 'goals') {
         // Fetch goals from backend
-        const response = await fetch('http://localhost:4000/api/goals');
+        const response = await fetch('https://swar-yoga-dec.onrender.com/api/goals');
         const goals = await response.json();
         
         data = {

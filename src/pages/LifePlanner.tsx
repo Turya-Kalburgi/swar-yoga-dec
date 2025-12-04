@@ -65,7 +65,7 @@ const LifePlanner = () => {
     }
 
     // Call real authentication API
-    fetch('http://localhost:4000/api/auth/login', {
+    fetch('https://swar-yoga-dec.onrender.com/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
