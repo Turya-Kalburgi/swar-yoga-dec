@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = '/api';
+const API_BASE_URL = 'https://swar-yoga-dec.onrender.com/api';
 
 // Create axios instance with timeout and retry logic
 const apiClient = axios.create({
