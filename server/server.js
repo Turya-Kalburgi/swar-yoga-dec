@@ -111,9 +111,9 @@ app.post('/api/page-state', async (req, res) => {
       return res.status(400).json({ error: 'userId is required' });
     }
 
-    const { pageName, pathname, search, hash } = req.body;
-    if (!pageName || !pathname) {
-      return res.status(400).json({ error: 'pageName and pathname are required' });
+    const { pageName, pageData } = req.body;
+    if (!pageName || !pageData || !pageData.pathname) {
+      return res.status(400).json({ error: 'pageName and pageData.pathname are required' });
     }
 
     const db = await readData();
@@ -125,9 +125,9 @@ app.post('/api/page-state', async (req, res) => {
     const pageState = {
       userId,
       pageName,
-      pathname,
-      search: search || '',
-      hash: hash || '',
+      pathname: pageData.pathname,
+      search: pageData.search || '',
+      hash: pageData.hash || '',
       savedAt: new Date().toISOString()
     };
 
@@ -160,7 +160,18 @@ app.get('/api/page-state', async (req, res) => {
       return res.json({ success: true, pageState: null });
     }
 
-    res.json({ success: true, pageState });
+    // Return in the format the frontend expects
+    const formattedPageState = {
+      pageName: pageState.pageName,
+      pageData: {
+        pathname: pageState.pathname,
+        search: pageState.search || '',
+        hash: pageState.hash || ''
+      },
+      savedAt: pageState.savedAt
+    };
+
+    res.json({ success: true, pageState: formattedPageState });
   } catch (error) {
     res.status(500).json({ error: 'Failed to get page state', message: error.message });
   }

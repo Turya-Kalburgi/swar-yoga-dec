@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { pageStateAPI } from '../utils/database';
+import { pageStateAPI, getCurrentUserId } from '../utils/database';
 
 /**
  * Hook to save current page state on route changes
@@ -10,8 +10,14 @@ export const usePageStatePersistence = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Save page state when location changes
+  // Save page state when location changes (only for authenticated users)
   useEffect(() => {
+    const userId = getCurrentUserId();
+    if (!userId) {
+      // Don't track pages for unauthenticated users
+      return;
+    }
+
     const pageName = location.pathname || '/';
     const pageData = {
       pathname: location.pathname,
@@ -26,6 +32,12 @@ export const usePageStatePersistence = () => {
   // Restore last page on app mount (optional - called from App component)
   const restoreLastPage = async () => {
     try {
+      const userId = getCurrentUserId();
+      if (!userId) {
+        // No user logged in, don't restore
+        return null;
+      }
+
       const lastPage = await pageStateAPI.getLastPage();
       
       if (lastPage && lastPage.pageData && lastPage.pageData.pathname) {

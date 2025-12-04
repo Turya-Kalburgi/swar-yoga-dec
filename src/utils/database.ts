@@ -3,7 +3,7 @@ import axios from 'axios';
 const API_BASE_URL = 'https://swar-yoga-dec.onrender.com/api';
 
 // Get current user ID from localStorage
-function getCurrentUserId(): string | null {
+export function getCurrentUserId(): string | null {
   try {
     const userData = localStorage.getItem('user');
     if (userData) {
