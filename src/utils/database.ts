@@ -246,6 +246,140 @@ export const peopleAPI = {
   }
 };
 
+// ===== BACKUP & RESTORE API =====
+export const backupAPI = {
+  // Create a full backup of all user data
+  createBackup: async () => {
+    try {
+      const response = await apiClient.post('/backup/create', {});
+      return response.data;
+    } catch (error) {
+      console.error('Failed to create backup:', error);
+      throw error;
+    }
+  },
+
+  // Get list of all backups for the user
+  listBackups: async () => {
+    try {
+      const response = await apiClient.get('/backup/list');
+      return response.data || [];
+    } catch (error) {
+      console.error('Failed to list backups:', error);
+      return [];
+    }
+  },
+
+  // Restore data from a specific backup
+  restoreBackup: async (backupId: string) => {
+    try {
+      const response = await apiClient.post(`/backup/restore/${backupId}`, {});
+      return response.data;
+    } catch (error) {
+      console.error('Failed to restore backup:', error);
+      throw error;
+    }
+  },
+
+  // Delete a specific backup
+  deleteBackup: async (backupId: string) => {
+    try {
+      const response = await apiClient.delete(`/backup/${backupId}`);
+      return response.data;
+    } catch (error) {
+      console.error('Failed to delete backup:', error);
+      throw error;
+    }
+  },
+
+  // Export all data as JSON file (download)
+  exportDataAsJSON: async () => {
+    try {
+      const [visions, goals, tasks, todos, words, affirmations, health, people] = await Promise.all([
+        visionAPI.getAll().catch(() => []),
+        goalsAPI.getAll().catch(() => []),
+        tasksAPI.getAll().catch(() => []),
+        todosAPI.getAll().catch(() => []),
+        dailyWordsAPI.getAll().catch(() => []),
+        affirmationsAPI.getAll().catch(() => []),
+        healthAPI.getAll().catch(() => []),
+        peopleAPI.getAll().catch(() => []),
+      ]);
+
+      const backup = {
+        userId: getCurrentUserId(),
+        timestamp: new Date().toISOString(),
+        version: '1.0',
+        data: {
+          visions,
+          goals,
+          tasks,
+          todos,
+          dailyWords: words,
+          affirmations,
+          health,
+          people,
+        }
+      };
+
+      return backup;
+    } catch (error) {
+      console.error('Failed to export data:', error);
+      throw error;
+    }
+  },
+
+  // Download backup as JSON file
+  downloadBackupFile: async () => {
+    try {
+      const backup = await backupAPI.exportDataAsJSON();
+      const dataStr = JSON.stringify(backup, null, 2);
+      const dataBlob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(dataBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `swar-yoga-backup-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      return true;
+    } catch (error) {
+      console.error('Failed to download backup file:', error);
+      throw error;
+    }
+  },
+
+  // Import and restore data from uploaded JSON file
+  importFromJSON: async (jsonFile: File): Promise<boolean> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        try {
+          const content = event.target?.result as string;
+          const backup = JSON.parse(content);
+
+          // Validate backup structure
+          if (!backup.data || !backup.userId) {
+            throw new Error('Invalid backup file format');
+          }
+
+          // Send to server for restoration
+          const response = await apiClient.post('/backup/import', { backup });
+          resolve(response.data.success || true);
+        } catch (error) {
+          console.error('Failed to import backup:', error);
+          reject(error);
+        }
+      };
+      reader.onerror = () => {
+        reject(new Error('Failed to read file'));
+      };
+      reader.readAsText(jsonFile);
+    });
+  }
+};
+
 // ===== TEST CONNECTION =====
 export const testConnection = async () => {
   try {

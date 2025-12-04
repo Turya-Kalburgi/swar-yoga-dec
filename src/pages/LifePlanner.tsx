@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Bot as Lotus, ArrowLeft, Brain, Sparkles, Target, CheckSquare, Users, FileText, Menu, X, LogOut, User, Heart, Calendar, Clock, Dumbbell, MessageSquare, Smile, Trash2, Edit, Home } from 'lucide-react';
+import { Bot as Lotus, ArrowLeft, Brain, Sparkles, Target, CheckSquare, Users, FileText, Menu, X, LogOut, User, Heart, Calendar, Clock, Dumbbell, MessageSquare, Smile, Trash2, Edit, Home, Database } from 'lucide-react';
 import DatabaseStatus from '../components/DatabaseStatus';
 import Dashboard from '../components/Dashboard';
 import MyVision from '../components/MyVision';
@@ -8,6 +8,7 @@ import MyGoals from '../components/MyGoals';
 import MyTasks from '../components/MyTasks';
 import DiamondPeople from '../components/DiamondPeople';
 import PDFExport from '../components/PDFExport';
+import BackupManager from '../components/BackupManager';
 import DailyPlanner from '../components/DailyPlanner';
 import WeeklyPlanner from '../components/WeeklyPlanner';
 import MonthlyPlanner from '../components/MonthlyPlanner';
@@ -116,6 +117,7 @@ const LifePlanner = () => {
     { id: 'word', name: 'My Word', icon: MessageSquare, color: 'purple' },
     { id: 'affirmations', name: 'Affirmations', icon: Smile, color: 'purple' },
     { id: 'people', name: 'Diamond People', icon: Users, color: 'purple' },
+    { id: 'backup', name: 'Backup & Restore', icon: Database, color: 'purple' },
     { id: 'export', name: 'PDF Export', icon: FileText, color: 'purple' }
   ];
 
@@ -166,6 +168,8 @@ const LifePlanner = () => {
         return <PositiveAffirmations />;
       case 'people':
         return <DiamondPeople />;
+      case 'backup':
+        return <BackupManager />;
       case 'export':
         return <PDFExport />;
       default:
