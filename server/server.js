@@ -36,7 +36,8 @@ app.get('/', (req, res) => {
   res.json({ message: 'Swar Yoga Backend API - Running on Render', timestamp: new Date().toISOString() });
 });
 
-// Workshop Routes - mounted at /api/admin/workshops
+// ⭐ IMPORTANT: Workshop Routes MUST come FIRST before generic routes
+// Otherwise the generic routes will catch them!
 app.use('/api/admin/workshops', workshopRoutes);
 
 // Resolve data file path. decodeURIComponent fixes percent-encoded spaces (e.g. 'project%2013')
