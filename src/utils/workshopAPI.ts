@@ -3,7 +3,7 @@
  * This module handles all API calls to the admin workshop endpoints
  */
 
-const API_BASE_URL = 'http://localhost:4000/api/admin/workshops';
+const API_BASE_URL = 'https://swar-yoga-dec.onrender.com/api/admin/workshops';
 
 export interface WorkshopBatch {
   id?: string;
