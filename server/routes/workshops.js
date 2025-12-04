@@ -10,10 +10,12 @@ const router = express.Router();
 
 /**
  * Get the workshops JSON file path
+ * Resolves to /project-root/server-data.json
  */
 function getWorkshopsFilePath() {
-  // server-data.json is at /project 13/server-data.json
-  return path.resolve(__dirname, '../../server-data.json');
+  // Decode URI component to handle spaces in paths (e.g., 'project 13')
+  const serverDir = decodeURIComponent(new URL('.', import.meta.url).pathname);
+  return path.resolve(serverDir, '../../server-data.json');
 }
 
 /**
@@ -22,11 +24,14 @@ function getWorkshopsFilePath() {
 async function readWorkshops() {
   try {
     const filePath = getWorkshopsFilePath();
+    console.log('Reading workshops from:', filePath);
     const fileContent = await fs.readFile(filePath, 'utf-8');
     const data = JSON.parse(fileContent);
+    console.log('Successfully read', data.workshops?.length || 0, 'workshops');
     return data.workshops || [];
   } catch (error) {
-    console.log('Could not read workshops file, returning empty array:', error);
+    console.error('Error reading workshops file:', error.message);
+    console.error('Stack:', error.stack);
     return [];
   }
 }
