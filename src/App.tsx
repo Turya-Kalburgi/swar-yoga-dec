@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { useState, useEffect } from 'react';
+import usePageStatePersistence from './hooks/usePageStatePersistence';
 
 import Header from './components/Header';
 import Footer from './components/Footer';
@@ -64,6 +65,28 @@ const ProtectedAdminRoute = ({ children }: { children: React.ReactNode }) => {
 };
 
 function App() {
+  const { restoreLastPage } = usePageStatePersistence();
+  const [pageRestored, setPageRestored] = useState(false);
+
+  useEffect(() => {
+    // Restore last visited page on app mount
+    const restorePage = async () => {
+      const restored = await restoreLastPage();
+      setPageRestored(true);
+    };
+    
+    restorePage();
+  }, []);
+
+  // Show loading while page restoration is in progress
+  if (!pageRestored) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+      </div>
+    );
+  }
+
   return (
     <ThemeProvider>
       <AdminProvider>

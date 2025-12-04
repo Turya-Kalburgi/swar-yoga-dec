@@ -568,3 +568,102 @@ export const testConnection = async () => {
 export const getConnectionStatus = async () => {
   return await testConnection();
 };
+
+// ===== PAGE STATE PERSISTENCE =====
+// Save current page/route so on refresh, users return to the same page
+
+export const pageStateAPI = {
+  // Save current page state
+  savePage: async (pageName: string, pageData?: any) => {
+    try {
+      const userId = getCurrentUserId();
+      if (!userId) {
+        console.warn('No userId for page state persistence');
+        return null;
+      }
+
+      const pageState = {
+        userId,
+        pageName,
+        pageData: pageData || {},
+        timestamp: new Date().toISOString(),
+        lastVisited: new Date().toISOString(),
+      };
+
+      // Save to localStorage first (instant)
+      localStorage.setItem(`page-state-${userId}`, JSON.stringify(pageState));
+
+      // Save to server (async, non-blocking)
+      try {
+        await apiClient.post('/page-state', pageState);
+      } catch (err) {
+        console.warn('Could not save page state to server:', err?.message);
+        // Fallback to localStorage is already done
+      }
+
+      return pageState;
+    } catch (err) {
+      console.error('Error saving page state:', err);
+      return null;
+    }
+  },
+
+  // Get last visited page
+  getLastPage: async () => {
+    try {
+      const userId = getCurrentUserId();
+      if (!userId) {
+        console.warn('No userId for page state retrieval');
+        return null;
+      }
+
+      // Check localStorage first (instant)
+      const localPageState = localStorage.getItem(`page-state-${userId}`);
+      if (localPageState) {
+        return JSON.parse(localPageState);
+      }
+
+      // Fallback to server
+      try {
+        const response = await apiClient.get('/page-state', {
+          params: { userId },
+        });
+        
+        if (response.data && response.data.pageName) {
+          // Cache in localStorage
+          localStorage.setItem(`page-state-${userId}`, JSON.stringify(response.data));
+          return response.data;
+        }
+      } catch (err) {
+        console.warn('Could not get page state from server:', err?.message);
+      }
+
+      return null;
+    } catch (err) {
+      console.error('Error getting page state:', err);
+      return null;
+    }
+  },
+
+  // Clear page state (on logout)
+  clearPage: async () => {
+    try {
+      const userId = getCurrentUserId();
+      if (!userId) return;
+
+      // Clear localStorage
+      localStorage.removeItem(`page-state-${userId}`);
+
+      // Clear from server
+      try {
+        await apiClient.delete('/page-state', {
+          params: { userId },
+        });
+      } catch (err) {
+        console.warn('Could not delete page state from server:', err?.message);
+      }
+    } catch (err) {
+      console.error('Error clearing page state:', err);
+    }
+  },
+};

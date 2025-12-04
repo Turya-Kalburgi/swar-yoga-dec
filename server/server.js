@@ -102,6 +102,90 @@ app.post('/api/admin/backup/restore', async (req, res) => {
   }
 });
 
+// ===== PAGE STATE PERSISTENCE ENDPOINTS =====
+// Save page state - called when user navigates to a new page
+app.post('/api/page-state', async (req, res) => {
+  try {
+    const userId = req.headers['x-user-id'];
+    if (!userId) {
+      return res.status(400).json({ error: 'userId is required' });
+    }
+
+    const { pageName, pathname, search, hash } = req.body;
+    if (!pageName || !pathname) {
+      return res.status(400).json({ error: 'pageName and pathname are required' });
+    }
+
+    const db = await readData();
+    if (!db.pageStates) db.pageStates = [];
+
+    // Find existing page state for this user, or create new
+    const existingIdx = db.pageStates.findIndex(ps => ps.userId === userId);
+    
+    const pageState = {
+      userId,
+      pageName,
+      pathname,
+      search: search || '',
+      hash: hash || '',
+      savedAt: new Date().toISOString()
+    };
+
+    if (existingIdx !== -1) {
+      db.pageStates[existingIdx] = pageState;
+    } else {
+      db.pageStates.push(pageState);
+    }
+
+    await writeData(db);
+    res.json({ success: true, pageState });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to save page state', message: error.message });
+  }
+});
+
+// Get last page state for user
+app.get('/api/page-state', async (req, res) => {
+  try {
+    const userId = req.headers['x-user-id'];
+    if (!userId) {
+      return res.status(400).json({ error: 'userId is required' });
+    }
+
+    const db = await readData();
+    const pageStates = db.pageStates || [];
+    const pageState = pageStates.find(ps => ps.userId === userId);
+
+    if (!pageState) {
+      return res.json({ success: true, pageState: null });
+    }
+
+    res.json({ success: true, pageState });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to get page state', message: error.message });
+  }
+});
+
+// Clear page state - called on logout
+app.delete('/api/page-state', async (req, res) => {
+  try {
+    const userId = req.headers['x-user-id'];
+    if (!userId) {
+      return res.status(400).json({ error: 'userId is required' });
+    }
+
+    const db = await readData();
+    if (!db.pageStates) db.pageStates = [];
+
+    db.pageStates = db.pageStates.filter(ps => ps.userId !== userId);
+    await writeData(db);
+
+    res.json({ success: true, message: 'Page state cleared' });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to clear page state', message: error.message });
+  }
+});
+
 // Resolve data file path. decodeURIComponent fixes percent-encoded spaces (e.g. 'project%2013')
 const serverDir = decodeURIComponent(new URL('.', import.meta.url).pathname);
 const DATA_FILE = path.resolve(serverDir, '../server-data.json');
