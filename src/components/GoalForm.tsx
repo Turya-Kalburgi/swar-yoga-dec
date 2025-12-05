@@ -9,14 +9,18 @@ interface GoalFormProps {
 
 const GoalForm: React.FC<GoalFormProps> = ({ onSubmit, onCancel, initialData }) => {
   const [goal, setGoal] = useState<any>({
-    name: initialData?.name || '',
+    title: initialData?.title || initialData?.name || '',
+    description: initialData?.description || '',
+    visionTitle: initialData?.visionTitle || '',
+    visionId: initialData?.visionId || null,
     startDate: initialData?.startDate || '',
     endDate: initialData?.endDate || '',
     startTime: initialData?.startTime || '',
     endTime: initialData?.endTime || '',
     budget: initialData?.budget || '',
     priority: initialData?.priority || 'Medium',
-    status: initialData?.status || 'Not Started',
+    status: initialData?.status || 'In Progress',
+    progress: initialData?.progress || 0,
     note: initialData?.note || '',
     tasks: initialData?.tasks || [],
     todos: initialData?.todos || [],
@@ -109,8 +113,12 @@ const GoalForm: React.FC<GoalFormProps> = ({ onSubmit, onCancel, initialData }) 
         <form onSubmit={handleSubmit} className="p-4 space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
-              <label className="text-sm font-medium">Goal Name *</label>
-              <input required value={goal.name} onChange={e => updateField('name', e.target.value)} className="w-full p-2 border rounded" />
+              <label className="text-sm font-medium">Goal Title *</label>
+              <input required value={goal.title} onChange={e => updateField('title', e.target.value)} className="w-full p-2 border rounded" />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Description</label>
+              <input value={goal.description} onChange={e => updateField('description', e.target.value)} placeholder="Goal description" className="w-full p-2 border rounded" />
             </div>
             <div>
               <label className="text-sm font-medium"><Calendar className="inline h-4 w-4 mr-1"/> Start Date</label>

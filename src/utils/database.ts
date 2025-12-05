@@ -8,7 +8,11 @@ export function getCurrentUserId(): string | null {
     const userData = localStorage.getItem('user');
     if (userData) {
       const user = JSON.parse(userData);
-      return user.id || null;
+      const userId = user.id || null;
+      console.log('👤 getCurrentUserId:', userId);
+      return userId;
+    } else {
+      console.warn('⚠️ No user data in localStorage');
     }
   } catch (e) {
     console.warn('Could not retrieve user ID from localStorage', e);
@@ -40,15 +44,23 @@ apiClient.interceptors.request.use((config) => {
         config.data.userId = userId;
       }
     }
+    console.log(`📤 API Request - ${config.method?.toUpperCase()} ${config.url} (userId: ${userId})`, config.data);
+  } else {
+    console.warn('⚠️ No userId found in localStorage - requests may fail');
   }
   return config;
 });
 
 // Add response interceptor for error handling
 apiClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    console.log(`✅ API Response - ${response.status}`, response.config.method?.toUpperCase(), response.config.url, response.data);
+    return response;
+  },
   (error) => {
-    console.error('API Error:', error.response?.data || error.message);
+    const errorMsg = error.response?.data?.error || error.response?.data || error.message;
+    const status = error.response?.status;
+    console.error(`❌ API Error [${status}] - ${error.config?.method?.toUpperCase()} ${error.config?.url}:`, errorMsg);
     return Promise.reject(error);
   }
 );

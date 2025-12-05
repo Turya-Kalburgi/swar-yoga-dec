@@ -23,13 +23,14 @@ interface VisionFormProps {
 
 const VisionForm: React.FC<VisionFormProps> = ({ onSubmit, onCancel, initialData }) => {
   const [vision, setVision] = useState({
-    name: initialData?.name || '',
+    title: initialData?.title || initialData?.name || '',
     category: initialData?.category || 'Life',
     imageUrl: initialData?.imageUrl || '',
     note: initialData?.note || '',
     startDate: initialData?.startDate || '',
     endDate: initialData?.endDate || '',
     budget: initialData?.budget || '',
+    year: initialData?.year || new Date().getFullYear(),
     milestones: initialData?.milestones || [],
   });
 
@@ -189,14 +190,14 @@ const VisionForm: React.FC<VisionFormProps> = ({ onSubmit, onCancel, initialData
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Vision Name *
+                  Vision Title *
                 </label>
                 <input
                   type="text"
-                  value={vision.name}
-                  onChange={(e) => updateVisionField('name', e.target.value)}
+                  value={vision.title}
+                  onChange={(e) => updateVisionField('title', e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
-                  placeholder="Enter vision name..."
+                  placeholder="Enter vision title..."
                   required
                 />
               </div>
