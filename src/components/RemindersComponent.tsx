@@ -1,78 +1,65 @@
-import React, { useState, useEffect } from 'react';
-import { Bell, Plus, Edit, Trash2, Clock, Repeat2, Loader, CheckCircle, X } from 'lucide-react';
+import React, { useState, useEffect, useContext } from 'react';
+import { remindersAPI } from '../utils/database';
+import { AuthContext } from '../context/AuthContext';
+import { Plus, X, Edit, Trash2, Search, Clock, AlertCircle, CheckCircle, Bell, Flag, Calendar } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 interface Reminder {
-  id: string;
-  userId: string;
+  _id?: string;
+  id?: string;
+  userId?: string;
   title: string;
   description?: string;
-  reminderTime: string;
   reminderDate: string;
-  entityType?: 'task' | 'todo' | 'activity' | 'event';
-  entityId?: string;
-  entityName?: string;
-  recurring: 'none' | 'daily' | 'weekly' | 'monthly';
-  isCompleted: boolean;
-  priority: 'low' | 'medium' | 'high';
-  snoozedUntil?: string; // ISO datetime string
-  snoozeCount?: number;
+  reminderTime: string;
+  priority?: 'Low' | 'Medium' | 'High';
+  category: string;
+  reminderType?: 'Todo' | 'Task' | 'Goal' | 'Milestone' | 'Custom';
+  relatedId?: string;
+  relatedTitle?: string;
+  status?: 'Active' | 'Snoozed' | 'Dismissed' | 'Completed';
+  isCompleted?: boolean;
+  completedAt?: string;
+  snoozedUntil?: string;
   createdAt?: string;
+  updatedAt?: string;
 }
 
 const RemindersComponent: React.FC = () => {
+  const { user } = useContext(AuthContext) || { user: null };
   const [reminders, setReminders] = useState<Reminder[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [filter, setFilter] = useState<'all' | 'upcoming' | 'overdue' | 'completed'>('all');
+  const [filter, setFilter] = useState<'all' | 'active' | 'completed'>('all');
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const categories = ['Personal', 'Work', 'Health', 'Learning', 'Finance', 'Social'];
+  const priorities = ['Low', 'Medium', 'High'];
+  const reminderTypes = ['Todo', 'Task', 'Goal', 'Milestone', 'Custom'];
 
   const [formData, setFormData] = useState({
     title: '',
     description: '',
+    reminderDate: '',
     reminderTime: '09:00',
-    reminderDate: new Date().toISOString().split('T')[0],
-    entityType: '' as 'task' | 'todo' | 'activity' | 'event' | '',
-    entityName: '',
-    recurring: 'none' as 'none' | 'daily' | 'weekly' | 'monthly',
-    priority: 'medium' as 'low' | 'medium' | 'high'
+    priority: 'Medium' as 'Low' | 'Medium' | 'High',
+    category: 'Personal',
+    reminderType: 'Custom' as 'Todo' | 'Task' | 'Goal' | 'Milestone' | 'Custom',
+    relatedTitle: ''
   });
 
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const user = JSON.parse(localStorage.getItem('user') || '{}');
-
-  const entityTypes = {
-    task: { label: 'Task', icon: '✅' },
-    todo: { label: 'Todo', icon: '📋' },
-    activity: { label: 'Activity', icon: '🎯' },
-    event: { label: 'Event', icon: '📅' }
-  };
-
-  const priorityColors = {
-    low: 'bg-blue-100 text-blue-800 border-blue-300',
-    medium: 'bg-yellow-100 text-yellow-800 border-yellow-300',
-    high: 'bg-red-100 text-red-800 border-red-300'
-  };
-
   useEffect(() => {
-    loadReminders();
-  }, [user.id]);
+    if (user?.id) {
+      loadReminders();
+    }
+  }, [user?.id]);
 
   const loadReminders = async () => {
     try {
       setLoading(true);
-      const storageKey = `sadhaka_reminders_${user.id}`;
-      const stored = localStorage.getItem(storageKey);
-      const data = stored ? JSON.parse(stored) : [];
-
-      // Sort by date and time
-      data.sort((a: Reminder, b: Reminder) => {
-        const aDateTime = new Date(`${a.reminderDate}T${a.reminderTime}`);
-        const bDateTime = new Date(`${b.reminderDate}T${b.reminderTime}`);
-        return aDateTime.getTime() - bDateTime.getTime();
-      });
-
-      setReminders(data);
+      const allReminders = await remindersAPI.getAll(user?.id);
+      setReminders(allReminders || []);
     } catch (error) {
       console.error('❌ Error loading reminders:', error);
       toast.error('Failed to load reminders');
@@ -82,548 +69,461 @@ const RemindersComponent: React.FC = () => {
   };
 
   const validateForm = (): boolean => {
-    const newErrors: Record<string, string> = {};
-
     if (!formData.title.trim()) {
-      newErrors.title = 'Title is required';
+      toast.error('Title is required');
+      return false;
     }
-
     if (!formData.reminderDate) {
-      newErrors.reminderDate = 'Date is required';
+      toast.error('Reminder date is required');
+      return false;
     }
-
-    if (!formData.reminderTime) {
-      newErrors.reminderTime = 'Time is required';
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!validateForm()) {
-      toast.error('Please fix the errors');
-      return;
-    }
-
-    try {
-      const storageKey = `sadhaka_reminders_${user.id}`;
-      const existingData = JSON.parse(localStorage.getItem(storageKey) || '[]');
-
-      if (editingId) {
-        const index = existingData.findIndex((r: Reminder) => r.id === editingId);
-        if (index !== -1) {
-          existingData[index] = {
-            ...existingData[index],
-            title: formData.title,
-            description: formData.description,
-            reminderTime: formData.reminderTime,
-            reminderDate: formData.reminderDate,
-            entityType: formData.entityType || undefined,
-            entityName: formData.entityName || undefined,
-            recurring: formData.recurring,
-            priority: formData.priority
-          };
-        }
-        console.log(`✅ Reminder updated: ${formData.title}`);
-      } else {
-        const newReminder: Reminder = {
-          id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-          userId: user.id,
-          title: formData.title,
-          description: formData.description,
-          reminderTime: formData.reminderTime,
-          reminderDate: formData.reminderDate,
-          entityType: (formData.entityType as any) || undefined,
-          entityName: formData.entityName || undefined,
-          recurring: formData.recurring,
-          isCompleted: false,
-          priority: formData.priority,
-          createdAt: new Date().toISOString()
-        };
-        existingData.push(newReminder);
-        console.log(`✅ Reminder created: ${formData.title}`);
-      }
-
-      localStorage.setItem(storageKey, JSON.stringify(existingData));
-      await loadReminders();
-
-      toast.success(editingId ? 'Reminder updated!' : 'Reminder set!');
-      setShowAddModal(false);
-      resetForm();
-    } catch (error) {
-      console.error('❌ Error saving reminder:', error);
-      toast.error('Failed to save reminder');
-    }
-  };
-
-  const handleToggleComplete = async (id: string) => {
-    try {
-      const storageKey = `sadhaka_reminders_${user.id}`;
-      const data = JSON.parse(localStorage.getItem(storageKey) || '[]');
-      const reminder = data.find((r: Reminder) => r.id === id);
-
-      if (reminder) {
-        reminder.isCompleted = !reminder.isCompleted;
-        localStorage.setItem(storageKey, JSON.stringify(data));
-        await loadReminders();
-        console.log(`✅ Reminder marked as ${reminder.isCompleted ? 'completed' : 'pending'}`);
-        toast.success(reminder.isCompleted ? 'Reminder completed!' : 'Reminder reopened!');
-      }
-    } catch (error) {
-      console.error('❌ Error updating reminder:', error);
-      toast.error('Failed to update reminder');
-    }
-  };
-
-  const handleDelete = async (id: string) => {
-    if (!window.confirm('Delete this reminder?')) return;
-
-    try {
-      const storageKey = `sadhaka_reminders_${user.id}`;
-      const data = JSON.parse(localStorage.getItem(storageKey) || '[]');
-      const filtered = data.filter((r: Reminder) => r.id !== id);
-      localStorage.setItem(storageKey, JSON.stringify(filtered));
-
-      console.log(`✅ Reminder deleted`);
-      await loadReminders();
-      toast.success('Reminder deleted!');
-    } catch (error) {
-      console.error('❌ Error deleting reminder:', error);
-      toast.error('Failed to delete reminder');
-    }
-  };
-
-  const handleSnooze = async (id: string, minutes: number) => {
-    try {
-      const storageKey = `sadhaka_reminders_${user.id}`;
-      const data = JSON.parse(localStorage.getItem(storageKey) || '[]');
-      const reminder = data.find((r: Reminder) => r.id === id);
-
-      if (reminder) {
-        const now = new Date();
-        const snoozedUntil = new Date(now.getTime() + minutes * 60000);
-        reminder.snoozedUntil = snoozedUntil.toISOString();
-        reminder.snoozeCount = (reminder.snoozeCount || 0) + 1;
-        localStorage.setItem(storageKey, JSON.stringify(data));
-        await loadReminders();
-        toast.success(`Reminder snoozed for ${minutes} minutes`);
-      }
-    } catch (error) {
-      console.error('❌ Error snoozing reminder:', error);
-      toast.error('Failed to snooze reminder');
-    }
+    return true;
   };
 
   const resetForm = () => {
     setFormData({
       title: '',
       description: '',
+      reminderDate: '',
       reminderTime: '09:00',
-      reminderDate: new Date().toISOString().split('T')[0],
-      entityType: '',
-      entityName: '',
-      recurring: 'none',
-      priority: 'medium'
+      priority: 'Medium',
+      category: 'Personal',
+      reminderType: 'Custom',
+      relatedTitle: ''
     });
-    setErrors({});
     setEditingId(null);
   };
 
-  const getFilteredReminders = () => {
-    const now = new Date();
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!validateForm() || !user?.id) return;
 
-    return reminders.filter(reminder => {
-      // Skip snoozed reminders
-      if (reminder.snoozedUntil && new Date(reminder.snoozedUntil) > now) {
-        return false;
+    try {
+      const payload = {
+        userId: user.id,
+        title: formData.title,
+        description: formData.description,
+        reminderDate: formData.reminderDate,
+        reminderTime: formData.reminderTime,
+        priority: formData.priority,
+        category: formData.category,
+        reminderType: formData.reminderType,
+        relatedTitle: formData.relatedTitle
+      };
+
+      if (editingId) {
+        await remindersAPI.update(editingId, payload);
+        toast.success('Reminder updated!');
+      } else {
+        await remindersAPI.create(payload);
+        toast.success('Reminder created!');
       }
 
-      const reminderDateTime = new Date(`${reminder.reminderDate}T${reminder.reminderTime}`);
-
-      if (filter === 'completed') {
-        return reminder.isCompleted;
-      } else if (filter === 'upcoming') {
-        return !reminder.isCompleted && reminderDateTime > now;
-      } else if (filter === 'overdue') {
-        return !reminder.isCompleted && reminderDateTime <= now;
-      }
-      return true;
-    });
+      await loadReminders();
+      setShowAddModal(false);
+      resetForm();
+    } catch (error: any) {
+      console.error('❌ Error saving reminder:', error);
+      toast.error(error.message || 'Failed to save reminder');
+    }
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Loader className="w-8 h-8 animate-spin text-blue-600" />
-      </div>
-    );
-  }
+  const handleEdit = (reminder: Reminder) => {
+    setFormData({
+      title: reminder.title || '',
+      description: reminder.description || '',
+      reminderDate: reminder.reminderDate || '',
+      reminderTime: reminder.reminderTime || '09:00',
+      priority: reminder.priority || 'Medium',
+      category: reminder.category || 'Personal',
+      reminderType: reminder.reminderType || 'Custom',
+      relatedTitle: reminder.relatedTitle || ''
+    });
+    setEditingId(reminder._id || reminder.id || '');
+    setShowAddModal(true);
+  };
 
-  const filteredReminders = getFilteredReminders();
-  const upcomingCount = reminders.filter(
-    r => !r.isCompleted && new Date(`${r.reminderDate}T${r.reminderTime}`) > new Date()
-  ).length;
-  const overdueCount = reminders.filter(
-    r => !r.isCompleted && new Date(`${r.reminderDate}T${r.reminderTime}`) <= new Date()
-  ).length;
+  const handleSnooze = async (id: string, minutes: number) => {
+    try {
+      await remindersAPI.snooze(id, minutes);
+      await loadReminders();
+      toast.success(`Reminder snoozed for ${minutes} minutes`);
+    } catch (error: any) {
+      console.error('❌ Error snoozing reminder:', error);
+      toast.error('Failed to snooze reminder');
+    }
+  };
+
+  const handleComplete = async (id: string) => {
+    try {
+      await remindersAPI.complete(id);
+      await loadReminders();
+      toast.success('Reminder marked as complete!');
+    } catch (error: any) {
+      console.error('❌ Error completing reminder:', error);
+      toast.error('Failed to complete reminder');
+    }
+  };
+
+  const handleDismiss = async (id: string) => {
+    try {
+      await remindersAPI.dismiss(id);
+      await loadReminders();
+      toast.info('Reminder dismissed');
+    } catch (error: any) {
+      console.error('❌ Error dismissing reminder:', error);
+      toast.error('Failed to dismiss reminder');
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!window.confirm('Delete this reminder?')) return;
+    try {
+      await remindersAPI.delete(id);
+      await loadReminders();
+      toast.success('Reminder deleted!');
+    } catch (error: any) {
+      console.error('❌ Error deleting reminder:', error);
+      toast.error('Failed to delete reminder');
+    }
+  };
+
+  const getPriorityColor = (priority?: string) => {
+    switch (priority) {
+      case 'High': return 'text-red-500';
+      case 'Medium': return 'text-yellow-500';
+      case 'Low': return 'text-blue-500';
+      default: return 'text-gray-500';
+    }
+  };
+
+  const getPriorityBgColor = (priority?: string) => {
+    switch (priority) {
+      case 'High': return 'bg-red-50';
+      case 'Medium': return 'bg-yellow-50';
+      case 'Low': return 'bg-blue-50';
+      default: return 'bg-gray-50';
+    }
+  };
+
+  const isOverdue = (date: string, time: string): boolean => {
+    if (!date || !time) return false;
+    const reminderDateTime = new Date(`${date}T${time}`);
+    return reminderDateTime < new Date();
+  };
+
+  const filteredReminders = reminders.filter(reminder => {
+    const matchesFilter =
+      filter === 'all' ||
+      (filter === 'active' && reminder.status === 'Active') ||
+      (filter === 'completed' && reminder.isCompleted);
+
+    const matchesSearch =
+      reminder.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      reminder.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      reminder.category.toLowerCase().includes(searchTerm.toLowerCase());
+
+    return matchesFilter && matchesSearch;
+  });
+
+  const groupedReminders = {
+    active: filteredReminders.filter(r => r.status !== 'Completed'),
+    completed: filteredReminders.filter(r => r.status === 'Completed')
+  };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Bell className="w-8 h-8 text-blue-600" />
-          <h2 className="text-3xl font-bold text-gray-800">Reminders</h2>
-        </div>
-        <button
-          onClick={() => {
-            resetForm();
-            setShowAddModal(true);
-          }}
-          className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
-        >
-          <Plus className="w-5 h-5" />
-          Set Reminder
-        </button>
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 p-6">
+      <div className="mb-8">
+        <h1 className="text-4xl font-bold text-gray-900 mb-2">My Reminders</h1>
+        <p className="text-gray-600">Stay on top of your important tasks</p>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-3 gap-4">
-        <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-lg border border-blue-200">
-          <p className="text-sm text-blue-700 font-medium">Upcoming</p>
-          <p className="text-2xl font-bold text-blue-900">{upcomingCount}</p>
-        </div>
-        <div className="bg-gradient-to-br from-red-50 to-red-100 p-4 rounded-lg border border-red-200">
-          <p className="text-sm text-red-700 font-medium">Overdue</p>
-          <p className="text-2xl font-bold text-red-900">{overdueCount}</p>
-        </div>
-        <div className="bg-gradient-to-br from-green-50 to-green-100 p-4 rounded-lg border border-green-200">
-          <p className="text-sm text-green-700 font-medium">Completed</p>
-          <p className="text-2xl font-bold text-green-900">
-            {reminders.filter(r => r.isCompleted).length}
-          </p>
-        </div>
-      </div>
-
-      {/* Filters */}
-      <div className="flex gap-2">
-        {(['all', 'upcoming', 'overdue', 'completed'] as const).map(f => (
-          <button
-            key={f}
-            onClick={() => setFilter(f)}
-            className={`px-4 py-2 rounded-lg transition ${
-              filter === f
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-            }`}
-          >
-            {f.charAt(0).toUpperCase() + f.slice(1)}
-          </button>
-        ))}
-      </div>
-
-      {/* Reminders List */}
-      <div className="space-y-3">
-        {filteredReminders.length === 0 ? (
-          <div className="text-center py-12 bg-gray-50 rounded-lg">
-            <Bell className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-            <p className="text-gray-600">No reminders in this category</p>
+      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+        <div className="flex flex-col lg:flex-row gap-4">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+            <input
+              type="text"
+              placeholder="Search reminders..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+            />
           </div>
-        ) : (
-          filteredReminders.map(reminder => {
-            const reminderDateTime = new Date(`${reminder.reminderDate}T${reminder.reminderTime}`);
-            const isOverdue = reminderDateTime < new Date() && !reminder.isCompleted;
 
-            return (
+          <select
+            value={filter}
+            onChange={(e) => setFilter(e.target.value as any)}
+            className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+          >
+            <option value="all">All Reminders</option>
+            <option value="active">Active</option>
+            <option value="completed">Completed</option>
+          </select>
+
+          <button
+            onClick={() => {
+              resetForm();
+              setShowAddModal(true);
+            }}
+            className="flex items-center gap-2 px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+          >
+            <Plus className="w-5 h-5" />
+            New Reminder
+          </button>
+        </div>
+      </div>
+
+      {groupedReminders.active.length > 0 && (
+        <div className="mb-8">
+          <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+            <Bell className="w-5 h-5 text-purple-500" />
+            Active ({groupedReminders.active.length})
+          </h2>
+          <div className="grid gap-4">
+            {groupedReminders.active.map(reminder => (
               <div
-                key={reminder.id}
-                className={`p-4 border rounded-lg transition ${
-                  reminder.isCompleted
-                    ? 'bg-gray-50 border-gray-300'
-                    : isOverdue
-                    ? 'bg-red-50 border-red-300'
-                    : 'bg-white border-gray-300 hover:shadow-md'
-                }`}
+                key={reminder._id || reminder.id}
+                className={`${getPriorityBgColor(reminder.priority)} border-l-4 border-purple-500 rounded-lg p-4 shadow-md hover:shadow-lg transition-shadow`}
               >
-                <div className="flex items-start justify-between gap-4">
-                  {/* Left Side */}
-                  <div className="flex items-start gap-3 flex-1">
+                <div className="flex items-start gap-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-2">
+                      <h3 className="font-semibold text-gray-900 text-lg break-words">
+                        {reminder.title}
+                      </h3>
+                      {isOverdue(reminder.reminderDate, reminder.reminderTime) && (
+                        <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-1" />
+                      )}
+                    </div>
+
+                    {reminder.description && (
+                      <p className="text-gray-600 text-sm mt-1">{reminder.description}</p>
+                    )}
+
+                    <div className="flex flex-wrap gap-3 mt-3">
+                      <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full ${getPriorityColor(reminder.priority)} bg-white border`}>
+                        <Flag className="w-3 h-3" />
+                        {reminder.priority}
+                      </span>
+
+                      <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full bg-white border text-gray-600">
+                        {reminder.category}
+                      </span>
+
+                      <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full bg-white border text-gray-600">
+                        <Calendar className="w-3 h-3" />
+                        {new Date(reminder.reminderDate).toLocaleDateString()}
+                      </span>
+
+                      <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full bg-white border text-gray-600">
+                        <Clock className="w-3 h-3" />
+                        {reminder.reminderTime}
+                      </span>
+
+                      {reminder.reminderType !== 'Custom' && (
+                        <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full bg-purple-100 border border-purple-300 text-purple-700">
+                          {reminder.reminderType}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2 flex-shrink-0">
                     <button
-                      onClick={() => handleToggleComplete(reminder.id)}
-                      className={`mt-1 flex-shrink-0 transition ${
-                        reminder.isCompleted ? 'text-green-600' : 'text-gray-400 hover:text-green-600'
-                      }`}
+                      onClick={() => handleSnooze(reminder._id || reminder.id || '', 5)}
+                      className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                      title="Snooze 5 min"
+                    >
+                      <Clock className="w-5 h-5" />
+                    </button>
+                    <button
+                      onClick={() => handleComplete(reminder._id || reminder.id || '')}
+                      className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                      title="Complete"
                     >
                       <CheckCircle className="w-5 h-5" />
                     </button>
-
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <h3 className={`font-semibold ${reminder.isCompleted ? 'line-through text-gray-600' : 'text-gray-800'}`}>
-                          {reminder.title}
-                        </h3>
-                        {isOverdue && (
-                          <span className="text-xs bg-red-600 text-white px-2 py-1 rounded">
-                            Overdue
-                          </span>
-                        )}
-                      </div>
-
-                      {reminder.description && (
-                        <p className="text-sm text-gray-600 mt-1">{reminder.description}</p>
-                      )}
-
-                      {/* Meta Info */}
-                      <div className="flex items-center gap-3 mt-2 text-sm text-gray-600">
-                        <div className="flex items-center gap-1">
-                          <Clock className="w-4 h-4" />
-                          {reminderDateTime.toLocaleString()}
-                        </div>
-
-                        {reminder.recurring !== 'none' && (
-                          <div className="flex items-center gap-1">
-                            <Repeat2 className="w-4 h-4" />
-                            {reminder.recurring.charAt(0).toUpperCase() + reminder.recurring.slice(1)}
-                          </div>
-                        )}
-
-                        {reminder.entityType && (
-                          <span className="text-xs bg-gray-200 px-2 py-1 rounded">
-                            {entityTypes[reminder.entityType].label}
-                            {reminder.entityName && `: ${reminder.entityName}`}
-                          </span>
-                        )}
-
-                        <span
-                          className={`text-xs px-2 py-1 rounded border ${
-                            priorityColors[reminder.priority]
-                          }`}
-                        >
-                          {reminder.priority.charAt(0).toUpperCase() + reminder.priority.slice(1)}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Right Side - Actions & Snooze */}
-                  <div className="flex flex-col gap-2 flex-shrink-0">
-                    {/* Snooze Buttons */}
-                    {!reminder.isCompleted && isOverdue && (
-                      <div className="flex gap-1 text-xs">
-                        <button
-                          onClick={() => handleSnooze(reminder.id, 5)}
-                          className="px-2 py-1 bg-orange-100 text-orange-700 hover:bg-orange-200 rounded transition"
-                          title="Snooze 5 minutes"
-                        >
-                          +5m
-                        </button>
-                        <button
-                          onClick={() => handleSnooze(reminder.id, 15)}
-                          className="px-2 py-1 bg-orange-100 text-orange-700 hover:bg-orange-200 rounded transition"
-                          title="Snooze 15 minutes"
-                        >
-                          +15m
-                        </button>
-                        <button
-                          onClick={() => handleSnooze(reminder.id, 30)}
-                          className="px-2 py-1 bg-orange-100 text-orange-700 hover:bg-orange-200 rounded transition"
-                          title="Snooze 30 minutes"
-                        >
-                          +30m
-                        </button>
-                      </div>
-                    )}
-
-                    {/* Edit/Delete Buttons */}
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => {
-                          setFormData({
-                            title: reminder.title,
-                            description: reminder.description || '',
-                            reminderTime: reminder.reminderTime,
-                            reminderDate: reminder.reminderDate,
-                            entityType: (reminder.entityType as any) || '',
-                            entityName: reminder.entityName || '',
-                            recurring: reminder.recurring,
-                            priority: reminder.priority
-                          });
-                          setEditingId(reminder.id);
-                          setShowAddModal(true);
-                        }}
-                        className="p-2 text-blue-600 hover:bg-blue-50 rounded transition"
-                      >
-                        <Edit className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(reminder.id)}
-                        className="p-2 text-red-600 hover:bg-red-50 rounded transition"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
+                    <button
+                      onClick={() => handleEdit(reminder)}
+                      className="p-2 text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
+                      title="Edit"
+                    >
+                      <Edit className="w-5 h-5" />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(reminder._id || reminder.id || '')}
+                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                      title="Delete"
+                    >
+                      <Trash2 className="w-5 h-5" />
+                    </button>
                   </div>
                 </div>
               </div>
-            );
-          })
-        )}
-      </div>
+            ))}
+          </div>
+        </div>
+      )}
 
-      {/* Add/Edit Modal */}
+      {groupedReminders.completed.length > 0 && (
+        <div className="mb-8">
+          <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+            <CheckCircle className="w-5 h-5 text-green-500" />
+            Completed ({groupedReminders.completed.length})
+          </h2>
+          <div className="grid gap-4">
+            {groupedReminders.completed.map(reminder => (
+              <div
+                key={reminder._id || reminder.id}
+                className="bg-gray-50 border-l-4 border-gray-300 rounded-lg p-4 shadow-md opacity-75 hover:shadow-lg transition-shadow"
+              >
+                <div className="flex items-start gap-4">
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-gray-600 line-through">{reminder.title}</h3>
+                    {reminder.description && (
+                      <p className="text-gray-500 text-sm line-through mt-1">{reminder.description}</p>
+                    )}
+                  </div>
+
+                  <div className="flex gap-2 flex-shrink-0">
+                    <button
+                      onClick={() => handleDelete(reminder._id || reminder.id || '')}
+                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                      title="Delete"
+                    >
+                      <Trash2 className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {filteredReminders.length === 0 && !loading && (
+        <div className="text-center py-16">
+          <Bell className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+          <p className="text-gray-500 text-lg">No reminders found. Create one to get started!</p>
+        </div>
+      )}
+
+      {loading && (
+        <div className="text-center py-16">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
+          <p className="text-gray-500 mt-4">Loading reminders...</p>
+        </div>
+      )}
+
       {showAddModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto">
-            <h3 className="text-2xl font-bold text-gray-800 mb-6">
-              {editingId ? 'Edit Reminder' : 'Set Reminder'}
-            </h3>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-gradient-to-r from-purple-600 to-pink-600 text-white p-6 flex items-center justify-between">
+              <h2 className="text-2xl font-bold">{editingId ? 'Edit Reminder' : 'Add New Reminder'}</h2>
+              <button
+                onClick={() => {
+                  setShowAddModal(false);
+                  resetForm();
+                }}
+                className="p-2 hover:bg-white hover:bg-opacity-20 rounded-lg transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Title */}
+            <form onSubmit={handleSubmit} className="p-6 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Title *
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Title *</label>
                 <input
                   type="text"
                   value={formData.title}
                   onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  placeholder="E.g., Call dentist"
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
-                    errors.title ? 'border-red-500' : 'border-gray-300'
-                  }`}
+                  placeholder="What do you need to be reminded about?"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                 />
-                {errors.title && <p className="text-red-600 text-sm mt-1">{errors.title}</p>}
               </div>
 
-              {/* Description */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Description
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
                 <textarea
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   placeholder="Add details..."
-                  rows={2}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  rows={3}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
                 />
               </div>
 
-              {/* Date */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Date *
-                </label>
-                <input
-                  type="date"
-                  value={formData.reminderDate}
-                  onChange={(e) => setFormData({ ...formData, reminderDate: e.target.value })}
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
-                    errors.reminderDate ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                />
-                {errors.reminderDate && (
-                  <p className="text-red-600 text-sm mt-1">{errors.reminderDate}</p>
-                )}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Reminder Date *</label>
+                  <input
+                    type="date"
+                    value={formData.reminderDate}
+                    onChange={(e) => setFormData({ ...formData, reminderDate: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Reminder Time</label>
+                  <input
+                    type="time"
+                    value={formData.reminderTime}
+                    onChange={(e) => setFormData({ ...formData, reminderTime: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
               </div>
 
-              {/* Time */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Time *
-                </label>
-                <input
-                  type="time"
-                  value={formData.reminderTime}
-                  onChange={(e) => setFormData({ ...formData, reminderTime: e.target.value })}
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
-                    errors.reminderTime ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                />
-                {errors.reminderTime && (
-                  <p className="text-red-600 text-sm mt-1">{errors.reminderTime}</p>
-                )}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                  <select
+                    value={formData.category}
+                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  >
+                    {categories.map(cat => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
+                  <select
+                    value={formData.priority}
+                    onChange={(e) => setFormData({ ...formData, priority: e.target.value as any })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  >
+                    {priorities.map(p => (
+                      <option key={p} value={p}>{p}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
-              {/* Priority */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Priority
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Reminder Type</label>
                 <select
-                  value={formData.priority}
-                  onChange={(e) => setFormData({ ...formData, priority: e.target.value as 'low' | 'medium' | 'high' })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  value={formData.reminderType}
+                  onChange={(e) => setFormData({ ...formData, reminderType: e.target.value as any })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                 >
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
-                </select>
-              </div>
-
-              {/* Recurring */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Recurring
-                </label>
-                <select
-                  value={formData.recurring}
-                  onChange={(e) => setFormData({ ...formData, recurring: e.target.value as 'none' | 'daily' | 'weekly' | 'monthly' })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="none">None</option>
-                  <option value="daily">Daily</option>
-                  <option value="weekly">Weekly</option>
-                  <option value="monthly">Monthly</option>
-                </select>
-              </div>
-
-              {/* Entity Type */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Link to (Optional)
-                </label>
-                <select
-                  value={formData.entityType}
-                  onChange={(e) => setFormData({ ...formData, entityType: e.target.value as 'task' | 'todo' | 'activity' | 'event' | '' })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">None</option>
-                  {Object.entries(entityTypes).map(([key, val]) => (
-                    <option key={key} value={key}>
-                      {val.label}
-                    </option>
+                  {reminderTypes.map(type => (
+                    <option key={type} value={type}>{type}</option>
                   ))}
                 </select>
               </div>
 
-              {/* Entity Name */}
-              {formData.entityType && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    {entityTypes[formData.entityType as any].label} Name
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.entityName}
-                    onChange={(e) => setFormData({ ...formData, entityName: e.target.value })}
-                    placeholder={`E.g., ${entityTypes[formData.entityType as any].label} name`}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-              )}
-
-              {/* Buttons */}
               <div className="flex gap-3 pt-4">
                 <button
                   type="submit"
-                  className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition"
+                  className="flex-1 px-6 py-3 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 transition-colors"
                 >
-                  {editingId ? 'Update' : 'Set'}
+                  {editingId ? 'Update Reminder' : 'Create Reminder'}
                 </button>
                 <button
                   type="button"
@@ -631,7 +531,7 @@ const RemindersComponent: React.FC = () => {
                     setShowAddModal(false);
                     resetForm();
                   }}
-                  className="flex-1 bg-gray-200 text-gray-700 py-2 rounded-lg hover:bg-gray-300 transition"
+                  className="flex-1 px-6 py-3 bg-gray-200 text-gray-700 font-medium rounded-lg hover:bg-gray-300 transition-colors"
                 >
                   Cancel
                 </button>

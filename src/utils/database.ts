@@ -798,3 +798,118 @@ export const dailyPlansAPI = {
     }
   }
 };
+
+// ==================== REMINDERS API ====================
+export const remindersAPI = {
+  getAll: async (userId?: string) => {
+    try {
+      const uid = userId || getCurrentUserId();
+      if (!uid) return [];
+      const response = await apiClient.get(`/reminders/${uid}`);
+      return response.data || [];
+    } catch (error) {
+      console.error('❌ Error fetching reminders:', error);
+      return [];
+    }
+  },
+
+  getByDate: async (userId: string, date: string) => {
+    try {
+      const uid = userId || getCurrentUserId();
+      if (!uid) return [];
+      const response = await apiClient.get(`/reminders/${uid}/${date}`);
+      return response.data || [];
+    } catch (error) {
+      console.error('❌ Error fetching reminders by date:', error);
+      return [];
+    }
+  },
+
+  getUpcoming: async (userId?: string) => {
+    try {
+      const uid = userId || getCurrentUserId();
+      if (!uid) return [];
+      const response = await apiClient.get(`/reminders/${uid}/upcoming/list`);
+      return response.data || [];
+    } catch (error) {
+      console.error('❌ Error fetching upcoming reminders:', error);
+      return [];
+    }
+  },
+
+  create: async (reminderData: any) => {
+    try {
+      const uid = getCurrentUserId();
+      if (!uid) throw new Error('User not authenticated');
+
+      const payload = {
+        userId: uid,
+        title: reminderData.title || 'Untitled Reminder',
+        description: reminderData.description || '',
+        reminderDate: reminderData.reminderDate,
+        reminderTime: reminderData.reminderTime || '09:00',
+        priority: reminderData.priority || 'Medium',
+        category: reminderData.category || 'Personal',
+        reminderType: reminderData.reminderType || 'Custom',
+        relatedId: reminderData.relatedId || '',
+        relatedTitle: reminderData.relatedTitle || ''
+      };
+
+      const response = await apiClient.post('/reminders', payload);
+      return response.data;
+    } catch (error: any) {
+      console.error('❌ Error creating reminder:', error);
+      throw new Error(`Failed to create reminder: ${error.response?.data?.message || error.message}`);
+    }
+  },
+
+  update: async (id: string, reminderData: any) => {
+    try {
+      const response = await apiClient.put(`/reminders/${id}`, reminderData);
+      return response.data;
+    } catch (error: any) {
+      console.error('❌ Error updating reminder:', error);
+      throw new Error(`Failed to update reminder: ${error.response?.data?.message || error.message}`);
+    }
+  },
+
+  snooze: async (id: string, minutes: number) => {
+    try {
+      const response = await apiClient.put(`/reminders/${id}/snooze`, { minutes });
+      return response.data;
+    } catch (error: any) {
+      console.error('❌ Error snoozing reminder:', error);
+      throw new Error(`Failed to snooze reminder: ${error.response?.data?.message || error.message}`);
+    }
+  },
+
+  complete: async (id: string) => {
+    try {
+      const response = await apiClient.put(`/reminders/${id}/complete`);
+      return response.data;
+    } catch (error: any) {
+      console.error('❌ Error completing reminder:', error);
+      throw new Error(`Failed to complete reminder: ${error.response?.data?.message || error.message}`);
+    }
+  },
+
+  dismiss: async (id: string) => {
+    try {
+      const response = await apiClient.put(`/reminders/${id}/dismiss`);
+      return response.data;
+    } catch (error: any) {
+      console.error('❌ Error dismissing reminder:', error);
+      throw new Error(`Failed to dismiss reminder: ${error.response?.data?.message || error.message}`);
+    }
+  },
+
+  delete: async (id: string) => {
+    try {
+      const response = await apiClient.delete(`/reminders/${id}`);
+      return response.data;
+    } catch (error: any) {
+      console.error('❌ Error deleting reminder:', error);
+      throw new Error(`Failed to delete reminder: ${error.response?.data?.message || error.message}`);
+    }
+  }
+};
