@@ -36,10 +36,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const parsedUser = JSON.parse(userData);
         setUser(parsedUser);
         setIsAuthenticated(true);
+        
+        // Log user info for debugging
+        console.log(`👤 User loaded from localStorage:`, {
+          email: parsedUser.email,
+          name: parsedUser.name,
+          userId: parsedUser.id,
+          timestamp: new Date().toLocaleString()
+        });
       } catch (error) {
-        console.error('Error parsing user data:', error);
+        console.error('❌ Error parsing user data:', error);
         localStorage.removeItem('user');
       }
+    } else {
+      console.log('ℹ️ No user logged in - localStorage is empty');
     }
   }, []);
 
@@ -47,13 +57,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.setItem('user', JSON.stringify(userData));
     setUser(userData);
     setIsAuthenticated(true);
+    
+    console.log(`✅ User logged in successfully:`, {
+      email: userData.email,
+      name: userData.name,
+      userId: userData.id,
+      storageKey: 'user',
+      timestamp: new Date().toLocaleString()
+    });
     toast.success('Signed in successfully!');
   };
 
   const logout = () => {
+    const loggedOutUser = user?.email || 'Unknown';
     localStorage.removeItem('user');
     setUser(null);
     setIsAuthenticated(false);
+    
+    console.log(`🚪 User logged out:`, {
+      email: loggedOutUser,
+      timestamp: new Date().toLocaleString()
+    });
     toast.info('You have been logged out');
   };
 

@@ -21,7 +21,12 @@ const STORAGE_KEY_HEALTH = 'sadhaka_health';
 const generateId = () => `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
 // Helper to get user-specific storage key
-const getUserStorageKey = (key: string, userId: string) => `${key}_${userId}`;
+const getUserStorageKey = (key: string, userId: string) => {
+  if (!userId) {
+    console.warn('⚠️ WARNING: getUserStorageKey called without userId');
+  }
+  return `${key}_${userId}`;
+};
 
 // ============ TYPE DEFINITIONS ============
 
@@ -173,15 +178,22 @@ export const visionAPI = {
     try {
       const storageKey = getUserStorageKey(STORAGE_KEY_VISIONS, userId);
       const stored = localStorage.getItem(storageKey);
-      return stored ? JSON.parse(stored) : [];
+      const visions = stored ? JSON.parse(stored) : [];
+      console.log(`📂 Loaded ${visions.length} visions for user ${userId}`);
+      return visions;
     } catch (error) {
-      console.error('Error fetching visions:', error);
+      console.error('❌ Error fetching visions:', error);
       return [];
     }
   },
 
   create: async (data: Vision) => {
     try {
+      if (!data.userId) {
+        console.error('❌ Cannot create vision: userId is required');
+        throw new Error('userId is required for creating vision');
+      }
+      
       const storageKey = getUserStorageKey(STORAGE_KEY_VISIONS, data.userId);
       const visions = JSON.parse(localStorage.getItem(storageKey) || '[]');
       const newVision = {
@@ -192,25 +204,38 @@ export const visionAPI = {
       };
       visions.push(newVision);
       localStorage.setItem(storageKey, JSON.stringify(visions));
+      
+      console.log(`✅ Vision created successfully:`, newVision);
+      console.log(`💾 Saved to localStorage key: ${storageKey}`);
       return newVision;
     } catch (error: any) {
-      console.error('Error creating vision:', error);
+      console.error('❌ Error creating vision:', error.message);
       throw new Error(error.message || 'Failed to create vision');
     }
   },
 
   update: async (id: string, data: Partial<Vision>) => {
     try {
-      if (!data.userId) throw new Error('userId is required');
+      if (!data.userId) {
+        console.error('❌ Cannot update vision: userId is required');
+        throw new Error('userId is required');
+      }
+      
       const storageKey = getUserStorageKey(STORAGE_KEY_VISIONS, data.userId);
       const visions = JSON.parse(localStorage.getItem(storageKey) || '[]');
       const index = visions.findIndex((v: Vision) => v.id === id);
-      if (index === -1) throw new Error('Vision not found');
+      if (index === -1) {
+        console.error(`❌ Vision not found with id: ${id}`);
+        throw new Error('Vision not found');
+      }
+      
       visions[index] = { ...visions[index], ...data, updatedAt: new Date().toISOString() };
       localStorage.setItem(storageKey, JSON.stringify(visions));
+      
+      console.log(`✅ Vision updated successfully:`, visions[index]);
       return visions[index];
     } catch (error: any) {
-      console.error('Error updating vision:', error);
+      console.error('❌ Error updating vision:', error.message);
       throw new Error(error.message || 'Failed to update vision');
     }
   },
@@ -219,11 +244,18 @@ export const visionAPI = {
     try {
       const storageKey = getUserStorageKey(STORAGE_KEY_VISIONS, userId);
       const visions = JSON.parse(localStorage.getItem(storageKey) || '[]');
+      const initialCount = visions.length;
       const filtered = visions.filter((v: Vision) => v.id !== id);
+      
+      if (filtered.length === initialCount) {
+        console.warn(`⚠️ Vision not found with id: ${id}`);
+      }
+      
       localStorage.setItem(storageKey, JSON.stringify(filtered));
+      console.log(`✅ Vision deleted. Remaining: ${filtered.length}`);
       return true;
     } catch (error: any) {
-      console.error('Error deleting vision:', error);
+      console.error('❌ Error deleting vision:', error.message);
       throw new Error(error.message || 'Failed to delete vision');
     }
   }
@@ -235,15 +267,22 @@ export const goalAPI = {
     try {
       const storageKey = getUserStorageKey(STORAGE_KEY_GOALS, userId);
       const stored = localStorage.getItem(storageKey);
-      return stored ? JSON.parse(stored) : [];
+      const goals = stored ? JSON.parse(stored) : [];
+      console.log(`📂 Loaded ${goals.length} goals for user ${userId}`);
+      return goals;
     } catch (error) {
-      console.error('Error fetching goals:', error);
+      console.error('❌ Error fetching goals:', error);
       return [];
     }
   },
 
   create: async (data: Goal) => {
     try {
+      if (!data.userId) {
+        console.error('❌ Cannot create goal: userId is required');
+        throw new Error('userId is required for creating goal');
+      }
+      
       const storageKey = getUserStorageKey(STORAGE_KEY_GOALS, data.userId);
       const goals = JSON.parse(localStorage.getItem(storageKey) || '[]');
       const newGoal = {
@@ -254,25 +293,38 @@ export const goalAPI = {
       };
       goals.push(newGoal);
       localStorage.setItem(storageKey, JSON.stringify(goals));
+      
+      console.log(`✅ Goal created successfully:`, newGoal);
+      console.log(`💾 Saved to localStorage key: ${storageKey}`);
       return newGoal;
     } catch (error: any) {
-      console.error('Error creating goal:', error);
+      console.error('❌ Error creating goal:', error.message);
       throw new Error(error.message || 'Failed to create goal');
     }
   },
 
   update: async (id: string, data: Partial<Goal>) => {
     try {
-      if (!data.userId) throw new Error('userId is required');
+      if (!data.userId) {
+        console.error('❌ Cannot update goal: userId is required');
+        throw new Error('userId is required');
+      }
+      
       const storageKey = getUserStorageKey(STORAGE_KEY_GOALS, data.userId);
       const goals = JSON.parse(localStorage.getItem(storageKey) || '[]');
       const index = goals.findIndex((g: Goal) => g.id === id);
-      if (index === -1) throw new Error('Goal not found');
+      if (index === -1) {
+        console.error(`❌ Goal not found with id: ${id}`);
+        throw new Error('Goal not found');
+      }
+      
       goals[index] = { ...goals[index], ...data, updatedAt: new Date().toISOString() };
       localStorage.setItem(storageKey, JSON.stringify(goals));
+      
+      console.log(`✅ Goal updated successfully:`, goals[index]);
       return goals[index];
     } catch (error: any) {
-      console.error('Error updating goal:', error);
+      console.error('❌ Error updating goal:', error.message);
       throw new Error(error.message || 'Failed to update goal');
     }
   },
@@ -281,11 +333,18 @@ export const goalAPI = {
     try {
       const storageKey = getUserStorageKey(STORAGE_KEY_GOALS, userId);
       const goals = JSON.parse(localStorage.getItem(storageKey) || '[]');
+      const initialCount = goals.length;
       const filtered = goals.filter((g: Goal) => g.id !== id);
+      
+      if (filtered.length === initialCount) {
+        console.warn(`⚠️ Goal not found with id: ${id}`);
+      }
+      
       localStorage.setItem(storageKey, JSON.stringify(filtered));
+      console.log(`✅ Goal deleted. Remaining: ${filtered.length}`);
       return true;
     } catch (error: any) {
-      console.error('Error deleting goal:', error);
+      console.error('❌ Error deleting goal:', error.message);
       throw new Error(error.message || 'Failed to delete goal');
     }
   }
