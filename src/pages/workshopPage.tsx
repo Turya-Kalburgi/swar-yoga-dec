@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Calendar, Clock, MapPin, Users, Filter, Search, Star, Play, DollarSign, Globe, RefreshCw, ShoppingCart, ArrowRight, ExternalLink } from 'lucide-react';
 import { cartAPI } from '../utils/cartData';
+import { workshopAPI } from '../utils/workshopData';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'react-toastify';
 import { useNavigate } from 'react-router-dom';
@@ -40,36 +41,33 @@ export interface Workshop {
   rating?: number;
 }
 
-// LOCAL WORKSHOPS DATA - ADD YOUR WORKSHOPS HERE
-const LOCAL_WORKSHOPS: Workshop[] = [
-  {
-    id: '1',
-    title: 'Beginner Swar Yoga',
-    instructor: 'Yogacharya Mohan Kalburgi',
-    startDate: '2025-12-15',
-    endDate: '2025-12-20',
-    duration: '6 days',
-    startTime: '09:00',
-    endTime: '17:00',
-    priceINR: 5000,
-    priceNPR: 7000,
-    priceUSD: 70,
-    maxParticipants: 50,
-    category: 'Beginner',
-    mode: 'Online',
-    language: 'Hindi',
-    level: 'Beginner',
-    location: 'Online',
-    image: '/logo with mohan sir.png',
-    youtubeId: 'dQw4w9WgXcQ',
-    description: 'Learn the fundamentals of Swar Yoga and breathing techniques',
-    paymentLinkINR: 'https://your-payment-link-inr.com',
-    paymentLinkNPR: 'https://your-payment-link-npr.com',
-    paymentLinkUSD: 'https://your-payment-link-usd.com',
-    whatsappGroupLink: 'https://chat.whatsapp.com/your-group-link'
-  },
-  // ADD MORE WORKSHOPS HERE
-];
+// Fallback workshop in case API fails
+const FALLBACK_WORKSHOP: Workshop = {
+  id: '1',
+  title: 'Beginner Swar Yoga',
+  instructor: 'Yogacharya Mohan Kalburgi',
+  startDate: '2025-12-15',
+  endDate: '2025-12-20',
+  duration: '6 days',
+  startTime: '09:00',
+  endTime: '17:00',
+  priceINR: 5000,
+  priceNPR: 7000,
+  priceUSD: 70,
+  maxParticipants: 50,
+  category: 'Beginner',
+  mode: 'Online',
+  language: 'Hindi',
+  level: 'Beginner',
+  location: 'Online',
+  image: '/logo with mohan sir.png',
+  youtubeId: 'dQw4w9WgXcQ',
+  description: 'Learn the fundamentals of Swar Yoga and breathing techniques',
+  paymentLinkINR: 'https://your-payment-link-inr.com',
+  paymentLinkNPR: 'https://your-payment-link-npr.com',
+  paymentLinkUSD: 'https://your-payment-link-usd.com',
+  whatsappGroupLink: 'https://chat.whatsapp.com/your-group-link'
+};
 
 const WorkshopPage = () => {
   const { user } = useAuth();
@@ -89,23 +87,41 @@ const WorkshopPage = () => {
   const [selectedWorkshop, setSelectedWorkshop] = useState<Workshop | null>(null);
   const [showVideoModal, setShowVideoModal] = useState(false);
 
-  // Load workshops from LOCAL DATA
+  // Load workshops from API
   const loadWorkshops = async (showRefreshing = false) => {
     try {
       if (showRefreshing) setRefreshing(true);
       else setLoading(true);
       
-      console.log('🔄 === LOADING WORKSHOPS FROM LOCAL DATA ===');
-      console.log('📋 Workshops available:', LOCAL_WORKSHOPS);
+      console.log('🔄 === LOADING WORKSHOPS FROM API ===');
       
-      setWorkshops(LOCAL_WORKSHOPS);
-      setFilteredWorkshops(LOCAL_WORKSHOPS);
+      // Get all public workshops from the API
+      const workshopsData = await workshopAPI.getPublicWorkshops();
+      
+      // Convert to Workshop[] format with string IDs for consistency
+      const formattedWorkshops: Workshop[] = workshopsData.map(ws => ({
+        ...ws,
+        id: ws.id.toString(),
+        enrolledCount: ws.enrolledCount || 0,
+        rating: ws.rating || 5
+      })) as Workshop[];
+      
+      // If no workshops from API, use fallback
+      const displayWorkshops = formattedWorkshops.length > 0 ? formattedWorkshops : [FALLBACK_WORKSHOP];
+      
+      console.log('📋 Workshops loaded:', displayWorkshops.length, displayWorkshops);
+      
+      setWorkshops(displayWorkshops);
+      setFilteredWorkshops(displayWorkshops);
       setLastRefreshTime(new Date());
       
       console.log('🔄 === LOADING COMPLETE ===');
     } catch (error) {
       console.error('❌ Error loading workshops:', error);
-      toast.error('Failed to load workshops');
+      // Use fallback on error
+      setWorkshops([FALLBACK_WORKSHOP]);
+      setFilteredWorkshops([FALLBACK_WORKSHOP]);
+      toast.error('Failed to load workshops, using fallback data');
     } finally {
       setLoading(false);
       setRefreshing(false);
