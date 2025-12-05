@@ -1,11 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { Mail, Phone, MapPin, Send, CheckCircle, AlertCircle } from 'lucide-react';
-// Header and Footer are provided by App routes; removed local imports to avoid duplicate rendering
-import { contactAPI } from '../utils/contactData';
+import { Mail, Phone, MessageSquare, Send, CheckCircle, AlertCircle, Loader, MapPin } from 'lucide-react';
 import { toast } from 'react-toastify';
 
+interface ContactFormData {
+  name: string;
+  email: string;
+  whatsapp: string;
+  countryCode: string;
+  subject: string;
+  message: string;
+}
+
 const ContactPage = () => {
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<ContactFormData>({
     name: '',
     email: '',
     whatsapp: '',
@@ -15,7 +22,7 @@ const ContactPage = () => {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitStatus, setSubmitStatus] = useState<'success' | 'error' | null>(null);
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [errors, setErrors] = useState<Partial<ContactFormData>>({});
 
   // Check if user is signed in and auto-fill form
   useEffect(() => {
@@ -27,7 +34,6 @@ const ContactPage = () => {
           ...prev,
           name: userData.name || '',
           email: userData.email || '',
-          // If we have phone/whatsapp info in user data, use it
           whatsapp: userData.whatsappNumber || userData.phone || '',
           countryCode: userData.countryCode || '+91'
         }));
@@ -44,7 +50,10 @@ const ContactPage = () => {
     { code: '+61', country: 'Australia' },
     { code: '+977', country: 'Nepal' },
     { code: '+65', country: 'Singapore' },
-    { code: '+971', country: 'UAE' }
+    { code: '+971', country: 'UAE' },
+    { code: '+86', country: 'China' },
+    { code: '+81', country: 'Japan' },
+    { code: '+33', country: 'France' }
   ];
 
   const subjectOptions = [
@@ -104,46 +113,69 @@ const ContactPage = () => {
     setSubmitStatus(null);
 
     try {
-      // Save contact message to admin panel
-      await contactAPI.addMessage({
-        name: formData.name,
-        email: formData.email,
-        whatsapp: formData.whatsapp,
-        countryCode: formData.countryCode,
-        subject: formData.subject,
-        message: formData.message
+      const API_URL = (import.meta as any).env.VITE_API_URL || 'https://swar-yoga-dec.onrender.com/api';
+
+      // Send contact message to admin system
+      const response = await fetch(`${API_URL}/admin/contact/messages`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          name: formData.name,
+          email: formData.email,
+          whatsapp: formData.whatsapp,
+          countryCode: formData.countryCode,
+          subject: formData.subject,
+          message: formData.message
+        })
       });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to send message');
+      }
       
       setSubmitStatus('success');
       toast.success('Your message has been sent successfully!');
       
-      setFormData({
-        name: '',
-        email: '',
-        whatsapp: '',
-        countryCode: '+91',
-        subject: '',
-        message: ''
+      console.log(`✅ Contact message sent:`, {
+        from: formData.email,
+        subject: formData.subject,
+        timestamp: new Date().toLocaleString()
       });
-      
-      // Re-fill user data if signed in
-      const user = localStorage.getItem('user');
-      if (user) {
-        try {
-          const userData = JSON.parse(user);
-          setFormData(prev => ({
-            ...prev,
-            name: userData.name || '',
-            email: userData.email || '',
-            whatsapp: userData.whatsappNumber || userData.phone || '',
-            countryCode: userData.countryCode || '+91'
-          }));
-        } catch (error) {
-          console.error('Error parsing user data:', error);
+
+      // Reset form after 2 seconds
+      setTimeout(() => {
+        setFormData({
+          name: '',
+          email: '',
+          whatsapp: '',
+          countryCode: '+91',
+          subject: '',
+          message: ''
+        });
+        
+        // Re-fill user data if signed in
+        const user = localStorage.getItem('user');
+        if (user) {
+          try {
+            const userData = JSON.parse(user);
+            setFormData(prev => ({
+              ...prev,
+              name: userData.name || '',
+              email: userData.email || '',
+              whatsapp: userData.whatsappNumber || userData.phone || '',
+              countryCode: userData.countryCode || '+91'
+            }));
+          } catch (err) {
+            console.error('Error parsing user data:', err);
+          }
         }
-      }
+      }, 2000);
     } catch (error) {
-      console.error('Error submitting contact form:', error);
+      console.error('❌ Error submitting contact form:', error);
       setSubmitStatus('error');
       toast.error('Failed to send message. Please try again.');
     } finally {

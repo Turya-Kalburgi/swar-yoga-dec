@@ -3,12 +3,19 @@ import cors from 'cors';
 import fs from 'fs/promises';
 import path from 'path';
 import workshopRoutes from './routes/workshops.js';
+import adminRoutes from './routes/admin.js';
 import { 
   createDailyBackup, 
   listBackups, 
   restoreFromBackup, 
   getBackupStats 
 } from './backup.js';
+import { 
+  createSignoutBackup, 
+  createManualBackup, 
+  listBackups as listAdminBackups, 
+  getBackupStats as getAdminBackupStats 
+} from './adminBackup.js';
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -45,6 +52,9 @@ app.get('/', (req, res) => {
 // ⭐ IMPORTANT: Workshop Routes MUST come FIRST before generic routes
 // Otherwise the generic routes will catch them!
 app.use('/api/admin/workshops', workshopRoutes);
+
+// ===== ADMIN SYSTEM ROUTES =====
+app.use('/api/admin', adminRoutes);
 
 // ===== BACKUP SYSTEM ENDPOINTS =====
 // Create daily backup
