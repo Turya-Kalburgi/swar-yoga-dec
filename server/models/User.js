@@ -5,13 +5,11 @@ const userSchema = new mongoose.Schema(
   {
     _id: {
       type: String,
-      default: () => uuidv4(),
-      primary: true
+      default: () => uuidv4()
     },
     userId: {
       type: String,
       unique: true,
-      index: true,
       required: true
     },
     email: {
@@ -19,8 +17,7 @@ const userSchema = new mongoose.Schema(
       unique: true,
       required: true,
       lowercase: true,
-      trim: true,
-      index: true
+      trim: true
     },
     name: {
       type: String,
