@@ -14,6 +14,7 @@ import {
   Milestone,
   Flag
 } from 'lucide-react';
+import { getPlaceholderDataUrl } from '../utils/placeholderImage';
 
 interface VisionFormProps {
   onSubmit: (visionData: any) => void;

@@ -4,6 +4,7 @@ import { cartAPI } from '../utils/cartData';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'react-toastify';
 import { useNavigate } from 'react-router-dom';
+import { getPlaceholderDataUrl } from '../utils/placeholderImage';
 
 // Define Workshop type locally
 export interface Workshop {
@@ -318,7 +319,7 @@ const WorkshopPage = () => {
             alt="Yoga Workshop"
             className="w-full h-full object-cover"
             onError={(e) => {
-              (e.target as HTMLImageElement).src = 'https://via.placeholder.com/1200x600?text=Yoga+Workshop';
+              (e.target as HTMLImageElement).src = getPlaceholderDataUrl(1200, 600, 'Yoga Workshop');
             }}
           />
           <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-black/70" />
@@ -464,7 +465,7 @@ const WorkshopPage = () => {
                   alt={workshop.title}
                   className="w-full h-full object-cover"
                   onError={(e) => {
-                    (e.target as HTMLImageElement).src = 'https://via.placeholder.com/400x200?text=Workshop+Image';
+                    (e.target as HTMLImageElement).src = getPlaceholderDataUrl(400, 200, 'Workshop');
                   }}
                 />
                 <div className="absolute top-4 left-4">
@@ -622,7 +623,7 @@ const WorkshopPage = () => {
                       alt={selectedWorkshop.title}
                       className="w-full h-64 object-cover rounded-lg"
                       onError={(e) => {
-                        (e.target as HTMLImageElement).src = 'https://via.placeholder.com/400x300?text=Workshop+Image';
+                        (e.target as HTMLImageElement).src = getPlaceholderDataUrl(400, 300, 'Workshop');
                       }}
                     />
                     {selectedWorkshop.youtubeId && (
