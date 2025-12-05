@@ -163,7 +163,7 @@ const BackupManager: React.FC = () => {
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-4xl font-bold text-gray-800 mb-2">Data Backup & Restore</h1>
-        <p className="text-gray-600">Safely backup and restore all your Life Planner data</p>
+        <p className="text-gray-600">Safely backup and restore all your Swar Yoga data</p>
       </div>
 
       {/* Messages */}

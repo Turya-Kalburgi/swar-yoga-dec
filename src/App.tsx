@@ -28,14 +28,8 @@ import AdminCartData from './pages/admin/AdminCartData';
 import AdminContactData from './pages/admin/AdminContactData';
 import AdminAccounting from './pages/admin/AdminAccounting';
 import CertificateCreator from './pages/admin/CertificateCreator';
-import LifePlanner from './pages/LifePlanner';
 import SwarCalendar from './pages/SwarCalendar';
 import NotFoundPage from './pages/NotFoundPage';
-
-import DailyPlanner from './components/DailyPlanner';
-import WeeklyPlanner from './components/WeeklyPlanner';
-import MonthlyPlanner from './components/MonthlyPlanner';
-import YearlyPlanner from './components/YearlyPlanner';
 
 import { AuthProvider } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
@@ -120,12 +114,7 @@ function App() {
                   <Route path="/admin/accounting" element={<ProtectedAdminRoute><AdminAccounting /></ProtectedAdminRoute>} />
                   <Route path="/admin/certificates" element={<ProtectedAdminRoute><CertificateCreator /></ProtectedAdminRoute>} />
                   <Route path="/accounting" element={<ProtectedAdminRoute><AdminAccounting /></ProtectedAdminRoute>} />
-                  <Route path="/life-planner" element={<><Header /><LifePlanner /><Footer /></>} />
                   <Route path="/swar-calendar" element={<><Header /><SwarCalendar /><Footer /></>} />
-                  <Route path="/vision-board/daily" element={<><Header /><DailyPlanner /><Footer /></>} />
-                  <Route path="/vision-board/weekly" element={<><Header /><WeeklyPlanner /><Footer /></>} />
-                  <Route path="/vision-board/monthly" element={<><Header /><MonthlyPlanner /><Footer /></>} />
-                  <Route path="/vision-board/yearly" element={<><Header /><YearlyPlanner /><Footer /></>} />
                   {/* Catch-all route - 404 page */}
                   <Route path="*" element={<><Header /><NotFoundPage /><Footer /></>} />
                 </Routes>

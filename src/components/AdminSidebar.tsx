@@ -27,8 +27,7 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ isMobile = false, onItemCli
     { id: 'cart-data', name: 'Cart Data', icon: ShoppingCart, path: '/admin/cart-data', color: 'orange' },
     { id: 'contact-data', name: 'Contact Data', icon: MessageSquare, path: '/admin/contact-data', color: 'pink' },
     { id: 'accounting', name: 'Accounting', icon: DollarSign, path: '/admin/accounting', color: 'yellow' },
-    { id: 'certificates', name: 'Certificates', icon: Award, path: '/admin/certificates', color: 'red' },
-    { id: 'life-planner', name: 'Life Planner', icon: BookOpen, path: '/life-planner', color: 'teal' }
+    { id: 'certificates', name: 'Certificates', icon: Award, path: '/admin/certificates', color: 'red' }
   ];
 
   const isActive = (path: string) => {

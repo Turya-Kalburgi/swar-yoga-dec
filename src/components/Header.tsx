@@ -223,14 +223,6 @@ const Header = () => {
                     <span>Cart ({cartCount})</span>
                   </Link>
                   
-                  <Link
-                    to="/life-planner"
-                    className="flex items-center space-x-2 px-4 py-3 text-purple-600 hover:text-purple-700 hover:bg-purple-50 rounded-lg transition-all duration-200"
-                    onClick={() => setIsMenuOpen(false)}
-                  >
-                    <span>Life Planner</span>
-                  </Link>
-                  
                   {isAuthenticated ? (
                     <>
                       <Link

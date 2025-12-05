@@ -33,7 +33,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeView, onViewChange }) => {
           <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-lg">
             <Calendar className="h-6 w-6 text-blue-600" />
           </div>
-          <h1 className="text-xl font-bold text-white">Life Planner</h1>
+          <h1 className="text-xl font-bold text-white">Swar Yoga</h1>
         </div>
       </div>
 
@@ -69,10 +69,10 @@ const Sidebar: React.FC<SidebarProps> = ({ activeView, onViewChange }) => {
       <div className="p-6 border-t border-gray-200 bg-gradient-to-r from-gray-50 to-gray-100">
         <div className="text-center">
           <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full mx-auto mb-3 flex items-center justify-center shadow-lg">
-            <span className="text-white text-lg font-bold">✨</span>
+            <span className="text-white text-lg font-bold">🧘</span>
           </div>
-          <p className="text-sm font-semibold text-gray-700">Life Planner v1.0</p>
-          <p className="text-xs text-gray-500 mt-1 font-medium">Plan • Track • Achieve</p>
+          <p className="text-sm font-semibold text-gray-700">Swar Yoga v1.0</p>
+          <p className="text-xs text-gray-500 mt-1 font-medium">Transform • Grow • Thrive</p>
         </div>
       </div>
     </div>

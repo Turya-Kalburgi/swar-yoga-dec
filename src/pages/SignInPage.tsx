@@ -144,7 +144,7 @@ const SignInPage = () => {
               <LogIn className="h-8 w-8 text-green-600" />
             </div>
             <h1 className="text-2xl font-bold text-gray-800 mb-2">Welcome Back</h1>
-            <p className="text-gray-600">Sign in to access your life planner and workshops</p>
+            <p className="text-gray-600">Sign in to access your account and workshops</p>
             {redirectPath && redirectPath !== '/' && (
               <div className="mt-2 text-sm text-green-600">
                 Sign in to continue to {redirectPath === 'account' ? 'your account' : 
@@ -264,10 +264,10 @@ const SignInPage = () => {
             </p>
           </div>
 
-          {/* Life Planner Access */}
+          {/* Account Access */}
           <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg text-center">
             <p className="text-sm text-green-800">
-              Sign in to access your personal Life Planner and track your transformation journey.
+              Sign in to access your account and browse workshops.
             </p>
           </div>
         </div>

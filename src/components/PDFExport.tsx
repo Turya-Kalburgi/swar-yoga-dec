@@ -13,8 +13,7 @@ const PDFExport = () => {
   const exportOptions = [
     { id: 'vision', name: 'Vision Board', icon: Target, description: 'Export your complete vision board with goals and progress' },
     { id: 'goals', name: 'Goals Report', icon: CheckSquare, description: 'Export detailed goals and task completion report' },
-    { id: 'people', name: 'Diamond People', icon: Users, description: 'Export your complete contacts and relationships list' },
-    { id: 'planner', name: 'Life Planner', icon: Calendar, description: 'Export comprehensive life planning data' }
+    { id: 'people', name: 'Diamond People', icon: Users, description: 'Export your complete contacts and relationships list' }
   ];
 
   const visions = [

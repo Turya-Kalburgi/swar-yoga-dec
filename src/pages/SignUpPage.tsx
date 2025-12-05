@@ -558,10 +558,10 @@ const SignUpPage = () => {
             </p>
           </div>
 
-          {/* Life Planner Access Note */}
+          {/* Account created successfully */}
           <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg text-center">
             <p className="text-sm text-green-800">
-              After creating your account, you can access your personal Life Planner from the home page to track your transformation journey.
+              Your account has been created successfully. You can now browse workshops and manage your account.
             </p>
           </div>
         </div>

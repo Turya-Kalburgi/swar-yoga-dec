@@ -96,12 +96,6 @@ const ThankYouPage = () => {
               <span>Browse More Workshops</span>
               <ArrowRight className="h-5 w-5" />
             </Link>
-            <Link 
-              to="/life-planner"
-              className="border border-green-600 text-green-600 hover:bg-green-50 px-6 py-3 rounded-lg transition-colors"
-            >
-              Go to Life Planner
-            </Link>
           </div>
         </div>
 

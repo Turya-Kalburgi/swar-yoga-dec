@@ -233,12 +233,6 @@ const CheckoutPage = () => {
               >
                 Browse More Workshops
               </Link>
-              <Link 
-                to="/life-planner"
-                className="block w-full border border-green-600 text-green-600 py-3 px-6 rounded-lg hover:bg-green-50 transition-colors"
-              >
-                Go to Life Planner
-              </Link>
             </div>
           </div>
         </div>
