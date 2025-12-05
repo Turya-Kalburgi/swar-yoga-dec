@@ -100,7 +100,7 @@ const SignInPage = () => {
         });
 
         if (authSuccess) {
-          const userData = { email: formData.email, name: user?.name || formData.email.split('@')[0], id: Date.now().toString() };
+          const userData = { email: formData.email, name: user?.name || formData.email.split('@')[0], id: btoa(formData.email).replace(/=/g, "").substring(0, 20) };
           login(userData as any);
           setSubmitStatus('success');
           setTimeout(() => navigate('/'), 500);
