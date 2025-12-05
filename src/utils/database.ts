@@ -1,9 +1,23 @@
 import axios from 'axios';
 
-// Use localhost for development, fallback to render for production
-const API_BASE_URL = typeof window !== 'undefined' && window.location.hostname === 'localhost'
-  ? 'http://localhost:3001/api'
-  : 'https://swar-yoga-dec.onrender.com/api';
+// Use environment variable for API URL, with sensible defaults
+const API_BASE_URL = (() => {
+  // Priority: env variable > localhost detection > fallback URL
+  if ((import.meta as any).env.VITE_API_URL) {
+    console.log('📡 Using VITE_API_URL from environment:', (import.meta as any).env.VITE_API_URL);
+    return (import.meta as any).env.VITE_API_URL;
+  }
+  
+  if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+    console.log('📡 Using localhost API (development)');
+    return 'http://localhost:3001/api';
+  }
+  
+  // Default for production/Netlify - use current domain or custom backend
+  const fallback = (import.meta as any).env.VITE_PRODUCTION_API_URL || 'https://api.swaryoga.online';
+  console.log('📡 Using production API:', fallback);
+  return fallback;
+})();
 
 // Get current user ID from localStorage
 export function getCurrentUserId(): string | null {
@@ -102,7 +116,7 @@ export const visionAPI = {
     }
   },
   
-  update: async (id: string, visionData: any) => {
+  update: async (id: number, visionData: any) => {
     try {
       const response = await apiClient.put(`/visions/${id}`, visionData);
       return response.data;
@@ -113,7 +127,7 @@ export const visionAPI = {
     }
   },
   
-  delete: async (id: string) => {
+  delete: async (id: number) => {
     try {
       const response = await apiClient.delete(`/visions/${id}`);
       return response.data;
@@ -159,7 +173,7 @@ export const goalsAPI = {
     }
   },
   
-  update: async (id: string, goalData: any) => {
+  update: async (id: number, goalData: any) => {
     try {
       const response = await apiClient.put(`/goals/${id}`, goalData);
       return response.data;
@@ -170,7 +184,7 @@ export const goalsAPI = {
     }
   },
   
-  delete: async (id: string) => {
+  delete: async (id: number) => {
     try {
       const response = await apiClient.delete(`/goals/${id}`);
       return response.data;
@@ -212,7 +226,7 @@ export const tasksAPI = {
     }
   },
   
-  update: async (id: string, taskData: any) => {
+  update: async (id: number, taskData: any) => {
     try {
       const response = await apiClient.put(`/tasks/${id}`, taskData);
       return response.data;
@@ -222,7 +236,7 @@ export const tasksAPI = {
     }
   },
   
-  delete: async (id: string) => {
+  delete: async (id: number) => {
     try {
       const response = await apiClient.delete(`/tasks/${id}`);
       return response.data;
@@ -334,7 +348,7 @@ export const dailyWordsAPI = {
     }
   },
   
-  update: async (id: string, wordData: any) => {
+  update: async (id: number, wordData: any) => {
     try {
       const response = await apiClient.put(`/daily-words/${id}`, wordData);
       return response.data;
@@ -344,7 +358,7 @@ export const dailyWordsAPI = {
     }
   },
   
-  delete: async (id: string) => {
+  delete: async (id: number) => {
     try {
       const response = await apiClient.delete(`/daily-words/${id}`);
       return response.data;
