@@ -10,7 +10,10 @@ import {
   Edit, 
   Trash2, 
   Save, 
-  X 
+  X,
+  Bell,
+  Flag,
+  Trophy
 } from 'lucide-react';
 
 interface HealthMetric {
@@ -22,13 +25,29 @@ interface HealthMetric {
   meals: number; // healthy meals count
   mood: 'great' | 'good' | 'neutral' | 'bad' | 'terrible';
   notes: string;
+  waterGoal?: number;
+  sleepGoal?: number;
+  exerciseGoal?: number;
+  mealsGoal?: number;
+  mealsReminder?: boolean;
+  sleepReminder?: boolean;
+  waterReminder?: boolean;
+  exerciseReminder?: boolean;
 }
 
 const HealthTracker = () => {
   const [metrics, setMetrics] = useState<HealthMetric[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showGoalsModal, setShowGoalsModal] = useState(false);
   const [editingMetric, setEditingMetric] = useState<HealthMetric | null>(null);
   const [currentDate, setCurrentDate] = useState(new Date().toISOString().split('T')[0]);
+  
+  const [healthGoals, setHealthGoals] = useState({
+    waterGoal: 8,
+    sleepGoal: 8,
+    exerciseGoal: 30,
+    mealsGoal: 3
+  });
   
   type FormData = {
     date: string;
@@ -38,6 +57,10 @@ const HealthTracker = () => {
     meals: number;
     mood: HealthMetric['mood'];
     notes: string;
+    waterReminder?: boolean;
+    sleepReminder?: boolean;
+    exerciseReminder?: boolean;
+    mealsReminder?: boolean;
   };
 
   const [formData, setFormData] = useState<FormData>({
@@ -47,7 +70,11 @@ const HealthTracker = () => {
     exercise: 0,
     meals: 0,
     mood: 'neutral',
-    notes: ''
+    notes: '',
+    waterReminder: false,
+    sleepReminder: false,
+    exerciseReminder: false,
+    mealsReminder: false
   });
 
   useEffect(() => {
@@ -141,7 +168,11 @@ const HealthTracker = () => {
       exercise: metric.exercise,
       meals: metric.meals,
       mood: metric.mood,
-      notes: metric.notes
+      notes: metric.notes,
+      waterReminder: metric.waterReminder || false,
+      sleepReminder: metric.sleepReminder || false,
+      exerciseReminder: metric.exerciseReminder || false,
+      mealsReminder: metric.mealsReminder || false
     });
   };
 
@@ -153,7 +184,11 @@ const HealthTracker = () => {
       exercise: 0,
       meals: 0,
       mood: 'neutral',
-      notes: ''
+      notes: '',
+      waterReminder: false,
+      sleepReminder: false,
+      exerciseReminder: false,
+      mealsReminder: false
     });
   };
 
@@ -184,6 +219,20 @@ const HealthTracker = () => {
     }
   };
 
+  const isGoalAchieved = (current: number, goal: number) => current >= goal;
+
+  const getGoalPercentage = (current: number, goal: number) => {
+    if (goal === 0) return 0;
+    return Math.min((current / goal) * 100, 100);
+  };
+
+  const getProgressColor = (percentage: number) => {
+    if (percentage >= 100) return 'bg-green-500';
+    if (percentage >= 75) return 'bg-blue-500';
+    if (percentage >= 50) return 'bg-yellow-500';
+    return 'bg-red-500';
+  };
+
   // Get today's metric if it exists
   const todayMetric = metrics.find(m => m.date === currentDate);
 
@@ -196,12 +245,21 @@ const HealthTracker = () => {
     <div className="bg-white rounded-2xl shadow-lg p-6">
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-xl font-bold text-gray-800">Health Tracker</h2>
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-        >
-          <Plus className="h-5 w-5" />
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setShowGoalsModal(true)}
+            className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            title="Set health goals"
+          >
+            <Flag className="h-5 w-5" />
+          </button>
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+          >
+            <Plus className="h-5 w-5" />
+          </button>
+        </div>
       </div>
 
       {/* Today's Summary */}
@@ -224,31 +282,49 @@ const HealthTracker = () => {
               <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-1">
                 <Droplet className="h-4 w-4 text-blue-600" />
               </div>
-              <div className="text-sm font-medium text-gray-800">{todayMetric.water}</div>
+              <div className="text-sm font-medium text-gray-800">{todayMetric.water}/{healthGoals.waterGoal}</div>
               <div className="text-xs text-gray-500">glasses</div>
+              <div className="w-full bg-gray-200 rounded-full h-1 mt-1">
+                <div 
+                  className={`h-1 rounded-full ${getProgressColor(getGoalPercentage(todayMetric.water, healthGoals.waterGoal))}`}
+                  style={{ width: `${getGoalPercentage(todayMetric.water, healthGoals.waterGoal)}%` }}
+                />
+              </div>
             </div>
             
             <div className="text-center">
               <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-1">
                 <Moon className="h-4 w-4 text-purple-600" />
               </div>
-              <div className="text-sm font-medium text-gray-800">{todayMetric.sleep}</div>
+              <div className="text-sm font-medium text-gray-800">{todayMetric.sleep}/{healthGoals.sleepGoal}</div>
               <div className="text-xs text-gray-500">hours</div>
+              <div className="w-full bg-gray-200 rounded-full h-1 mt-1">
+                <div 
+                  className={`h-1 rounded-full ${getProgressColor(getGoalPercentage(todayMetric.sleep, healthGoals.sleepGoal))}`}
+                  style={{ width: `${getGoalPercentage(todayMetric.sleep, healthGoals.sleepGoal)}%` }}
+                />
+              </div>
             </div>
             
             <div className="text-center">
               <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-1">
                 <Activity className="h-4 w-4 text-orange-600" />
               </div>
-              <div className="text-sm font-medium text-gray-800">{todayMetric.exercise}</div>
+              <div className="text-sm font-medium text-gray-800">{todayMetric.exercise}/{healthGoals.exerciseGoal}</div>
               <div className="text-xs text-gray-500">mins</div>
+              <div className="w-full bg-gray-200 rounded-full h-1 mt-1">
+                <div 
+                  className={`h-1 rounded-full ${getProgressColor(getGoalPercentage(todayMetric.exercise, healthGoals.exerciseGoal))}`}
+                  style={{ width: `${getGoalPercentage(todayMetric.exercise, healthGoals.exerciseGoal)}%` }}
+                />
+              </div>
             </div>
             
             <div className="text-center">
               <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-1">
                 <Utensils className="h-4 w-4 text-green-600" />
               </div>
-              <div className="text-sm font-medium text-gray-800">{todayMetric.meals}</div>
+              <div className="text-sm font-medium text-gray-800">{todayMetric.meals}/{healthGoals.mealsGoal}</div>
               <div className="text-xs text-gray-500">meals</div>
             </div>
             
@@ -491,6 +567,101 @@ const HealthTracker = () => {
                   className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
                 >
                   Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Goals Modal */}
+      {showGoalsModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-800">Set Health Goals</h3>
+              <button 
+                onClick={() => setShowGoalsModal(false)}
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+              >
+                <X className="h-5 w-5 text-gray-500" />
+              </button>
+            </div>
+            <div className="p-4 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                  <Droplet className="h-4 w-4 text-blue-600" />
+                  Water Goal (glasses)
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max="20"
+                  value={healthGoals.waterGoal}
+                  onChange={(e) => setHealthGoals({ ...healthGoals, waterGoal: parseInt(e.target.value) || 8 })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                  <Moon className="h-4 w-4 text-purple-600" />
+                  Sleep Goal (hours)
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max="24"
+                  step="0.5"
+                  value={healthGoals.sleepGoal}
+                  onChange={(e) => setHealthGoals({ ...healthGoals, sleepGoal: parseFloat(e.target.value) || 8 })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                  <Activity className="h-4 w-4 text-orange-600" />
+                  Exercise Goal (minutes)
+                </label>
+                <input
+                  type="number"
+                  min="5"
+                  max="300"
+                  step="5"
+                  value={healthGoals.exerciseGoal}
+                  onChange={(e) => setHealthGoals({ ...healthGoals, exerciseGoal: parseInt(e.target.value) || 30 })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                  <Utensils className="h-4 w-4 text-green-600" />
+                  Healthy Meals Goal
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max="10"
+                  value={healthGoals.mealsGoal}
+                  onChange={(e) => setHealthGoals({ ...healthGoals, mealsGoal: parseInt(e.target.value) || 3 })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div className="flex space-x-3 pt-2">
+                <button
+                  onClick={() => setShowGoalsModal(false)}
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg transition-colors"
+                >
+                  Save Goals
+                </button>
+                <button
+                  onClick={() => setShowGoalsModal(false)}
+                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Close
                 </button>
               </div>
             </div>

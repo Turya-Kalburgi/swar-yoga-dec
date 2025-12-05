@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Bell, Plus, Edit, Trash2, Clock, Repeat2, Loader, CheckCircle } from 'lucide-react';
+import { Bell, Plus, Edit, Trash2, Clock, Repeat2, Loader, CheckCircle, X } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 interface Reminder {
@@ -15,6 +15,8 @@ interface Reminder {
   recurring: 'none' | 'daily' | 'weekly' | 'monthly';
   isCompleted: boolean;
   priority: 'low' | 'medium' | 'high';
+  snoozedUntil?: string; // ISO datetime string
+  snoozeCount?: number;
   createdAt?: string;
 }
 
@@ -194,6 +196,27 @@ const RemindersComponent: React.FC = () => {
     }
   };
 
+  const handleSnooze = async (id: string, minutes: number) => {
+    try {
+      const storageKey = `sadhaka_reminders_${user.id}`;
+      const data = JSON.parse(localStorage.getItem(storageKey) || '[]');
+      const reminder = data.find((r: Reminder) => r.id === id);
+
+      if (reminder) {
+        const now = new Date();
+        const snoozedUntil = new Date(now.getTime() + minutes * 60000);
+        reminder.snoozedUntil = snoozedUntil.toISOString();
+        reminder.snoozeCount = (reminder.snoozeCount || 0) + 1;
+        localStorage.setItem(storageKey, JSON.stringify(data));
+        await loadReminders();
+        toast.success(`Reminder snoozed for ${minutes} minutes`);
+      }
+    } catch (error) {
+      console.error('❌ Error snoozing reminder:', error);
+      toast.error('Failed to snooze reminder');
+    }
+  };
+
   const resetForm = () => {
     setFormData({
       title: '',
@@ -213,6 +236,11 @@ const RemindersComponent: React.FC = () => {
     const now = new Date();
 
     return reminders.filter(reminder => {
+      // Skip snoozed reminders
+      if (reminder.snoozedUntil && new Date(reminder.snoozedUntil) > now) {
+        return false;
+      }
+
       const reminderDateTime = new Date(`${reminder.reminderDate}T${reminder.reminderTime}`);
 
       if (filter === 'completed') {
@@ -380,33 +408,63 @@ const RemindersComponent: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Right Side - Actions */}
-                  <div className="flex gap-2 flex-shrink-0">
-                    <button
-                      onClick={() => {
-                        setFormData({
-                          title: reminder.title,
-                          description: reminder.description || '',
-                          reminderTime: reminder.reminderTime,
-                          reminderDate: reminder.reminderDate,
-                          entityType: (reminder.entityType as any) || '',
-                          entityName: reminder.entityName || '',
-                          recurring: reminder.recurring,
-                          priority: reminder.priority
-                        });
-                        setEditingId(reminder.id);
-                        setShowAddModal(true);
-                      }}
-                      className="p-2 text-blue-600 hover:bg-blue-50 rounded transition"
-                    >
-                      <Edit className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(reminder.id)}
-                      className="p-2 text-red-600 hover:bg-red-50 rounded transition"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                  {/* Right Side - Actions & Snooze */}
+                  <div className="flex flex-col gap-2 flex-shrink-0">
+                    {/* Snooze Buttons */}
+                    {!reminder.isCompleted && isOverdue && (
+                      <div className="flex gap-1 text-xs">
+                        <button
+                          onClick={() => handleSnooze(reminder.id, 5)}
+                          className="px-2 py-1 bg-orange-100 text-orange-700 hover:bg-orange-200 rounded transition"
+                          title="Snooze 5 minutes"
+                        >
+                          +5m
+                        </button>
+                        <button
+                          onClick={() => handleSnooze(reminder.id, 15)}
+                          className="px-2 py-1 bg-orange-100 text-orange-700 hover:bg-orange-200 rounded transition"
+                          title="Snooze 15 minutes"
+                        >
+                          +15m
+                        </button>
+                        <button
+                          onClick={() => handleSnooze(reminder.id, 30)}
+                          className="px-2 py-1 bg-orange-100 text-orange-700 hover:bg-orange-200 rounded transition"
+                          title="Snooze 30 minutes"
+                        >
+                          +30m
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Edit/Delete Buttons */}
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => {
+                          setFormData({
+                            title: reminder.title,
+                            description: reminder.description || '',
+                            reminderTime: reminder.reminderTime,
+                            reminderDate: reminder.reminderDate,
+                            entityType: (reminder.entityType as any) || '',
+                            entityName: reminder.entityName || '',
+                            recurring: reminder.recurring,
+                            priority: reminder.priority
+                          });
+                          setEditingId(reminder.id);
+                          setShowAddModal(true);
+                        }}
+                        className="p-2 text-blue-600 hover:bg-blue-50 rounded transition"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(reminder.id)}
+                        className="p-2 text-red-600 hover:bg-red-50 rounded transition"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>

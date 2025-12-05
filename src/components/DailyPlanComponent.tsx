@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Clock, Plus, Edit, Trash2, Calendar, AlarmClock, Loader } from 'lucide-react';
+import { Clock, Plus, Edit, Trash2, Calendar, AlarmClock, Loader, Bell, Flag, AlertCircle } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 interface DailyPlan {
@@ -11,6 +11,9 @@ interface DailyPlan {
   description?: string;
   category?: 'work' | 'health' | 'personal' | 'learning' | 'other';
   duration?: number; // in minutes
+  priority?: 'Low' | 'Medium' | 'High';
+  reminder?: boolean;
+  reminderTime?: string;
   completed: boolean;
   createdAt?: string;
 }
@@ -28,6 +31,9 @@ const DailyPlanComponent: React.FC = () => {
     description: '',
     category: 'personal' as 'work' | 'health' | 'personal' | 'learning' | 'other',
     duration: 30,
+    priority: 'Medium' as 'Low' | 'Medium' | 'High',
+    reminder: false,
+    reminderTime: '',
     completed: false
   });
 
@@ -101,6 +107,9 @@ const DailyPlanComponent: React.FC = () => {
             description: formData.description,
             category: formData.category,
             duration: formData.duration,
+            priority: formData.priority,
+            reminder: formData.reminder,
+            reminderTime: formData.reminderTime,
             completed: formData.completed
           };
         }
@@ -116,6 +125,9 @@ const DailyPlanComponent: React.FC = () => {
           description: formData.description,
           category: formData.category,
           duration: formData.duration,
+          priority: formData.priority,
+          reminder: formData.reminder,
+          reminderTime: formData.reminderTime,
           completed: false,
           createdAt: new Date().toISOString()
         };
@@ -176,10 +188,44 @@ const DailyPlanComponent: React.FC = () => {
       description: '',
       category: 'personal' as 'work' | 'health' | 'personal' | 'learning' | 'other',
       duration: 30,
+      priority: 'Medium' as 'Low' | 'Medium' | 'High',
+      reminder: false,
+      reminderTime: '',
       completed: false
     });
     setErrors({});
     setEditingId(null);
+  };
+
+  const getPriorityColor = (priority?: 'Low' | 'Medium' | 'High') => {
+    switch (priority) {
+      case 'High':
+        return 'bg-red-100 text-red-800';
+      case 'Medium':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'Low':
+        return 'bg-green-100 text-green-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getPriorityIconColor = (priority?: 'Low' | 'Medium' | 'High') => {
+    switch (priority) {
+      case 'High':
+        return 'text-red-600';
+      case 'Medium':
+        return 'text-yellow-600';
+      case 'Low':
+        return 'text-green-600';
+      default:
+        return 'text-gray-600';
+    }
+  };
+
+  const isOverdue = (planDate: string, planTime: string): boolean => {
+    const planDateTime = new Date(`${planDate}T${planTime}`);
+    return planDateTime < new Date();
   };
 
   const categoryColor = {
@@ -293,13 +339,16 @@ const DailyPlanComponent: React.FC = () => {
               </button>
 
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
+                <div className="flex items-center gap-2 mb-1 flex-wrap">
                   <span className="font-bold text-lg text-gray-800 min-w-fit">
                     {plan.time}
                   </span>
                   <h3 className={`text-lg ${plan.completed ? 'line-through text-gray-500' : 'text-gray-800'}`}>
                     {plan.activity}
                   </h3>
+                  {!plan.completed && isOverdue(plan.date, plan.time) && (
+                    <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
+                  )}
                 </div>
 
                 {plan.description && (
@@ -312,6 +361,18 @@ const DailyPlanComponent: React.FC = () => {
                   {plan.category && (
                     <span className={`text-xs px-2 py-1 rounded ${categoryColor[plan.category]}`}>
                       {plan.category}
+                    </span>
+                  )}
+                  {plan.priority && (
+                    <span className={`flex items-center gap-1 text-xs px-2 py-1 rounded ${getPriorityColor(plan.priority)}`}>
+                      <Flag className={`w-3 h-3 ${getPriorityIconColor(plan.priority)}`} />
+                      {plan.priority}
+                    </span>
+                  )}
+                  {plan.reminder && plan.reminderTime && (
+                    <span className="flex items-center gap-1 text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded">
+                      <Bell className="w-3 h-3" />
+                      {plan.reminderTime}
                     </span>
                   )}
                   {plan.duration && (
@@ -332,6 +393,9 @@ const DailyPlanComponent: React.FC = () => {
                       description: plan.description || '',
                       category: (plan.category || 'personal') as 'work' | 'health' | 'personal' | 'learning' | 'other',
                       duration: plan.duration || 30,
+                      priority: plan.priority || 'Medium' as 'Low' | 'Medium' | 'High',
+                      reminder: plan.reminder || false,
+                      reminderTime: plan.reminderTime || '',
                       completed: plan.completed
                     });
                     setEditingId(plan.id);
@@ -427,6 +491,22 @@ const DailyPlanComponent: React.FC = () => {
                 </select>
               </div>
 
+              {/* Priority */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Priority
+                </label>
+                <select
+                  value={formData.priority}
+                  onChange={(e) => setFormData({ ...formData, priority: e.target.value as 'Low' | 'Medium' | 'High' })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="Low">Low</option>
+                  <option value="Medium">Medium</option>
+                  <option value="High">High</option>
+                </select>
+              </div>
+
               {/* Duration */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -441,6 +521,32 @@ const DailyPlanComponent: React.FC = () => {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                 />
                 {errors.duration && <p className="text-red-600 text-sm mt-1">{errors.duration}</p>}
+              </div>
+
+              {/* Reminder */}
+              <div className="border-t pt-4">
+                <label className="flex items-center gap-2 mb-3">
+                  <input
+                    type="checkbox"
+                    checked={formData.reminder}
+                    onChange={(e) => setFormData({ ...formData, reminder: e.target.checked, reminderTime: e.target.checked ? '09:00' : '' })}
+                    className="w-4 h-4 rounded border-gray-300"
+                  />
+                  <span className="text-sm font-medium text-gray-700">Set Reminder</span>
+                </label>
+                {formData.reminder && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Reminder Time
+                    </label>
+                    <input
+                      type="time"
+                      value={formData.reminderTime}
+                      onChange={(e) => setFormData({ ...formData, reminderTime: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                )}
               </div>
 
               {/* Buttons */}
