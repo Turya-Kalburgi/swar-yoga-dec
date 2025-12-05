@@ -1,10 +1,14 @@
 # 🔧 Daily Plan, Health, Reminders - Form Submission & Data Persistence Fix
 
+**Status:** 🟢 PARTIAL FIX APPLIED (waiting for backend URL configuration)
+
 ## Problem Summary
 
 Forms for **Daily Plan, Health Tracker, and Reminders** are not submitting on Netlify (swaryoga.online) and data is not being saved to MongoDB.
 
-**Root Cause:** The frontend is trying to reach a backend API that is returning 502 errors.
+**Root Cause:** The frontend was hardcoded to use a backend API that is returning 502 errors. The code didn't use environment variables for the backend URL.
+
+**Solution:** Updated `database.ts` to use environment variables (`VITE_API_URL`) for API endpoint configuration.
 
 ---
 
