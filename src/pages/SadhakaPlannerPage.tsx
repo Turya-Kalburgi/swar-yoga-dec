@@ -13,6 +13,7 @@ import {
   isOverdue, daysUntilDue, formatDate,
   Vision, Goal, Milestone, Task, MyWord, Todo, Reminder, DailyPlan, HealthTracker
 } from '../utils/sadhakaPlannerData';
+import TasksComponent from '../components/TasksComponent';
 
 const SadhakaPlannerPage = () => {
   const { user } = useAuth();
@@ -351,10 +352,7 @@ const SadhakaPlannerPage = () => {
             )}
 
             {activeTab === 'tasks' && (
-              <div className="text-center py-12 text-gray-500">
-                <ListTodo className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-                <p>Tasks section coming soon...</p>
-              </div>
+              <TasksComponent onTasksUpdate={(updatedTasks) => setTasks(updatedTasks)} />
             )}
 
             {activeTab === 'myword' && (
