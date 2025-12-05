@@ -1,35 +1,110 @@
 import mongoose from 'mongoose';
-import { v4 as uuidv4 } from 'uuid';
 
-const healthTrackerSchema = new mongoose.Schema(
-  {
-    _id: { type: String, default: () => uuidv4() },
-    userId: { type: String, required: true, index: true },
-    date: { type: Date, required: true },
-    waterIntake: { type: Number, default: 0 },
-    mealsLogged: [String],
-    exercise: { type: String, default: '' },
-    exerciseDuration: { type: Number, default: 0 },
-    mood: { type: String, enum: ['Excellent', 'Good', 'Average', 'Poor'], default: 'Average' },
-    sleepHours: { type: Number, default: 0 },
-    weight: { type: Number },
-    bloodPressure: { type: String, default: '' },
-    heartRate: { type: Number },
-    symptoms: [String],
-    medications: [String],
-    notes: { type: String, default: '' },
-    energyLevel: { type: Number, min: 1, max: 10, default: 5 },
-    stressLevel: { type: Number, min: 1, max: 10, default: 5 },
-    meditationMinutes: { type: Number, default: 0 },
-    yogaMinutes: { type: Number, default: 0 },
-    createdAt: { type: Date, default: Date.now },
-    updatedAt: { type: Date, default: Date.now }
+const healthTrackerSchema = new mongoose.Schema({
+  // User and date identification
+  userId: { 
+    type: String, 
+    required: true, 
+    index: true 
   },
-  { _id: false }
-);
+  date: { 
+    type: String, 
+    required: true 
+  }, // YYYY-MM-DD format
+  
+  // Core health metrics
+  water: { 
+    type: Number, 
+    default: 0 
+  }, // in glasses
+  sleep: { 
+    type: Number, 
+    default: 0 
+  }, // in hours
+  exercise: { 
+    type: Number, 
+    default: 0 
+  }, // in minutes
+  meals: { 
+    type: Number, 
+    default: 0 
+  }, // healthy meals count
+  
+  // Additional health data
+  steps: { 
+    type: Number, 
+    default: 0 
+  },
+  weight: { 
+    type: Number 
+  }, // in kg
+  calories: { 
+    type: Number 
+  }, // in kcal
+  heartRate: { 
+    type: Number 
+  }, // in bpm
+  bloodPressure: { 
+    type: String 
+  }, // systolic/diastolic format
+  
+  // Wellness indicators
+  mood: { 
+    type: String, 
+    enum: ['terrible', 'bad', 'neutral', 'good', 'great'],
+    default: 'neutral'
+  },
+  energyLevel: { 
+    type: Number, 
+    min: 1, 
+    max: 10, 
+    default: 5 
+  },
+  stressLevel: { 
+    type: Number, 
+    min: 1, 
+    max: 10, 
+    default: 5 
+  },
+  
+  // Activity tracking
+  meditationMinutes: { 
+    type: Number, 
+    default: 0 
+  },
+  yogaMinutes: { 
+    type: Number, 
+    default: 0 
+  },
+  
+  // Additional info
+  notes: { 
+    type: String 
+  },
+  
+  // Reminders
+  reminder: { 
+    type: Boolean, 
+    default: false 
+  },
+  reminderTime: { 
+    type: String 
+  }, // HH:MM format
+  
+  // Timestamps
+  createdAt: { 
+    type: Date, 
+    default: Date.now 
+  },
+  updatedAt: { 
+    type: Date, 
+    default: Date.now 
+  }
+}, { timestamps: true });
 
-healthTrackerSchema.index({ userId: 1, date: -1 });
+// Compound indexes for optimal query performance
+healthTrackerSchema.index({ userId: 1, date: 1 });
+healthTrackerSchema.index({ userId: 1, mood: 1 });
+healthTrackerSchema.index({ userId: 1, createdAt: -1 });
 
-const HealthTracker = mongoose.model('HealthTracker', healthTrackerSchema);
-
-export default HealthTracker;
+export default mongoose.model('HealthTracker', healthTrackerSchema);

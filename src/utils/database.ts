@@ -402,45 +402,68 @@ export const affirmationsAPI = {
 
 // ===== HEALTH API =====
 export const healthAPI = {
-  getAll: async (date?: string) => {
+  getAll: async (userId?: string) => {
     try {
-      const params = date ? { date } : {};
-      const response = await apiClient.get('/health', { params });
+      const uid = userId || getCurrentUserId();
+      if (!uid) return [];
+      const response = await apiClient.get(`/health/${uid}`);
       return response.data || [];
     } catch (error) {
-      console.error('Error fetching health data:', error);
+      console.error('❌ Error fetching health data:', error);
       return [];
+    }
+  },
+
+  getByDate: async (userId: string, date: string) => {
+    try {
+      const uid = userId || getCurrentUserId();
+      if (!uid) return null;
+      const response = await apiClient.get(`/health/${uid}/${date}`);
+      return response.data || null;
+    } catch (error) {
+      console.error('❌ Error fetching health data for date:', error);
+      return null;
     }
   },
 
   create: async (healthData: any) => {
     try {
-      console.log('Creating health entry:', healthData);
-      const response = await apiClient.post('/health', healthData);
+      const payload = {
+        ...healthData,
+        userId: healthData.userId || getCurrentUserId(),
+      };
+      console.log('✅ Creating health entry:', payload);
+      const response = await apiClient.post('/health', payload);
+      console.log('✅ Health entry created:', response.data);
       return response.data;
     } catch (error: any) {
-      console.error('Error creating health entry:', error);
-      throw new Error(`Failed to create health entry: ${error.response?.data?.message || error.message}`);
+      console.error('❌ Error creating health entry:', error);
+      const errorMsg = error.response?.data?.message || error.message;
+      throw new Error(`Failed to create health entry: ${errorMsg}`);
     }
   },
 
-  update: async (id: number, healthData: any) => {
+  update: async (id: string, healthData: any) => {
     try {
       const response = await apiClient.put(`/health/${id}`, healthData);
+      console.log('✅ Health entry updated:', id);
       return response.data;
     } catch (error: any) {
-      console.error('Error updating health entry:', error);
-      throw new Error(`Failed to update health entry: ${error.response?.data?.message || error.message}`);
+      console.error('❌ Error updating health entry:', error);
+      const errorMsg = error.response?.data?.message || error.message;
+      throw new Error(`Failed to update health entry: ${errorMsg}`);
     }
   },
 
-  delete: async (id: number) => {
+  delete: async (id: string) => {
     try {
       const response = await apiClient.delete(`/health/${id}`);
+      console.log('✅ Health entry deleted:', id);
       return response.data;
     } catch (error: any) {
-      console.error('Error deleting health entry:', error);
-      throw new Error(`Failed to delete health entry: ${error.response?.data?.message || error.message}`);
+      console.error('❌ Error deleting health entry:', error);
+      const errorMsg = error.response?.data?.message || error.message;
+      throw new Error(`Failed to delete health entry: ${errorMsg}`);
     }
   }
 };

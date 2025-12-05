@@ -1,22 +1,79 @@
 import mongoose from 'mongoose';
 
 const dailyPlanSchema = new mongoose.Schema({
-  userId: { type: String, required: true, index: true },
-  date: { type: String, required: true },
-  time: { type: String, required: true },
-  activity: { type: String, required: true },
-  description: { type: String },
-  category: { type: String, enum: ['work', 'health', 'personal', 'learning', 'other'], default: 'personal' },
-  duration: { type: Number, default: 30 }, // in minutes
-  priority: { type: String, enum: ['Low', 'Medium', 'High'], default: 'Medium' },
-  reminder: { type: Boolean, default: false },
-  reminderTime: { type: String },
-  completed: { type: Boolean, default: false },
-  createdAt: { type: Date, default: Date.now },
-  updatedAt: { type: Date, default: Date.now }
-});
+  // User and date identification
+  userId: { 
+    type: String, 
+    required: true, 
+    index: true 
+  },
+  date: { 
+    type: String, 
+    required: true 
+  }, // YYYY-MM-DD format
+  
+  // Activity details
+  time: { 
+    type: String, 
+    required: true 
+  }, // HH:MM format
+  activity: { 
+    type: String, 
+    required: true 
+  },
+  description: { 
+    type: String 
+  },
+  
+  // Categorization
+  category: { 
+    type: String, 
+    enum: ['work', 'health', 'personal', 'learning', 'spiritual', 'other'],
+    default: 'personal'
+  },
+  priority: { 
+    type: String, 
+    enum: ['Low', 'Medium', 'High'],
+    default: 'Medium'
+  },
+  
+  // Duration and timing
+  duration: { 
+    type: Number, 
+    default: 30 
+  }, // in minutes
+  reminder: { 
+    type: Boolean, 
+    default: false 
+  },
+  reminderTime: { 
+    type: String 
+  }, // HH:MM format
+  
+  // Status tracking
+  completed: { 
+    type: Boolean, 
+    default: false 
+  },
+  completedAt: { 
+    type: Date 
+  },
+  
+  // Timestamps
+  createdAt: { 
+    type: Date, 
+    default: Date.now 
+  },
+  updatedAt: { 
+    type: Date, 
+    default: Date.now 
+  }
+}, { timestamps: true });
 
-// Compound index for faster queries
+// Compound indexes for optimal query performance
 dailyPlanSchema.index({ userId: 1, date: 1 });
+dailyPlanSchema.index({ userId: 1, completed: 1 });
+dailyPlanSchema.index({ userId: 1, priority: 1 });
+dailyPlanSchema.index({ userId: 1, createdAt: -1 });
 
 export default mongoose.model('DailyPlan', dailyPlanSchema);

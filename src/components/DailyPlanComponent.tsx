@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Clock, Plus, Edit, Trash2, Calendar, AlarmClock, Loader, Bell, Flag, AlertCircle } from 'lucide-react';
+import { Clock, Plus, Edit2, Trash2, Calendar, CheckCircle2, AlertCircle, Loader } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { dailyPlansAPI } from '../utils/database';
 
@@ -11,13 +11,25 @@ interface DailyPlan {
   time: string;
   activity: string;
   description?: string;
-  category?: 'work' | 'health' | 'personal' | 'learning' | 'other';
-  duration?: number; // in minutes
+  category?: 'work' | 'health' | 'personal' | 'learning' | 'spiritual' | 'other';
   priority?: 'Low' | 'Medium' | 'High';
+  duration?: number;
   reminder?: boolean;
   reminderTime?: string;
   completed: boolean;
+  completedAt?: string;
   createdAt?: string;
+}
+
+interface FormData {
+  time: string;
+  activity: string;
+  description: string;
+  category: 'work' | 'health' | 'personal' | 'learning' | 'spiritual' | 'other';
+  duration: number;
+  priority: 'Low' | 'Medium' | 'High';
+  reminder: boolean;
+  reminderTime: string;
 }
 
 const DailyPlanComponent: React.FC = () => {
@@ -27,16 +39,15 @@ const DailyPlanComponent: React.FC = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<FormData>({
     time: '',
     activity: '',
     description: '',
-    category: 'personal' as 'work' | 'health' | 'personal' | 'learning' | 'other',
+    category: 'personal',
     duration: 30,
-    priority: 'Medium' as 'Low' | 'Medium' | 'High',
+    priority: 'Medium',
     reminder: false,
     reminderTime: '',
-    completed: false
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -70,17 +81,8 @@ const DailyPlanComponent: React.FC = () => {
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
 
-    if (!formData.time) {
-      newErrors.time = 'Time is required';
-    }
-
-    if (!formData.activity.trim()) {
-      newErrors.activity = 'Activity is required';
-    }
-
-    if (formData.duration && formData.duration < 5) {
-      newErrors.duration = 'Duration must be at least 5 minutes';
-    }
+    if (!formData.time) newErrors.time = 'Time is required';
+    if (!formData.activity) newErrors.activity = 'Activity is required';
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -90,7 +92,7 @@ const DailyPlanComponent: React.FC = () => {
     e.preventDefault();
 
     if (!validateForm()) {
-      toast.error('Please fix the errors');
+      toast.error('Please fill required fields');
       return;
     }
 
@@ -98,15 +100,7 @@ const DailyPlanComponent: React.FC = () => {
       const payload = {
         userId: user.id,
         date: selectedDate,
-        time: formData.time,
-        activity: formData.activity,
-        description: formData.description,
-        category: formData.category,
-        duration: formData.duration,
-        priority: formData.priority,
-        reminder: formData.reminder,
-        reminderTime: formData.reminderTime,
-        completed: formData.completed
+        ...formData,
       };
 
       if (editingId) {
@@ -128,14 +122,12 @@ const DailyPlanComponent: React.FC = () => {
 
   const handleToggle = async (id: string, completed: boolean) => {
     try {
-      const plan = plans.find(p => (p._id || p.id) === id);
-      if (plan) {
-        await dailyPlansAPI.update(id, { completed: !completed });
-        await loadPlans();
-        toast.success('Plan updated');
-      }
+      await dailyPlansAPI.update(id, { completed: !completed });
+      await loadPlans();
+      toast.success('Plan updated');
     } catch (error) {
       console.error('❌ Error toggling plan:', error);
+      toast.error('Failed to toggle plan');
     }
   };
 
@@ -157,12 +149,11 @@ const DailyPlanComponent: React.FC = () => {
       time: '',
       activity: '',
       description: '',
-      category: 'personal' as 'work' | 'health' | 'personal' | 'learning' | 'other',
+      category: 'personal',
       duration: 30,
-      priority: 'Medium' as 'Low' | 'Medium' | 'High',
+      priority: 'Medium',
       reminder: false,
       reminderTime: '',
-      completed: false
     });
     setErrors({});
     setEditingId(null);
@@ -175,36 +166,22 @@ const DailyPlanComponent: React.FC = () => {
       case 'Medium':
         return 'bg-yellow-100 text-yellow-800';
       case 'Low':
-        return 'bg-green-100 text-green-800';
+        return 'bg-blue-100 text-blue-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
   };
 
-  const getPriorityIconColor = (priority?: 'Low' | 'Medium' | 'High') => {
-    switch (priority) {
-      case 'High':
-        return 'text-red-600';
-      case 'Medium':
-        return 'text-yellow-600';
-      case 'Low':
-        return 'text-green-600';
-      default:
-        return 'text-gray-600';
-    }
-  };
-
-  const isOverdue = (planDate: string, planTime: string): boolean => {
-    const planDateTime = new Date(`${planDate}T${planTime}`);
-    return planDateTime < new Date();
-  };
-
-  const categoryColor = {
-    'work': 'bg-blue-100 text-blue-800',
-    'health': 'bg-green-100 text-green-800',
-    'personal': 'bg-purple-100 text-purple-800',
-    'learning': 'bg-orange-100 text-orange-800',
-    'other': 'bg-gray-100 text-gray-800'
+  const getCategoryColor = (category?: string) => {
+    const colors: Record<string, string> = {
+      work: 'bg-blue-100 text-blue-800',
+      health: 'bg-green-100 text-green-800',
+      personal: 'bg-purple-100 text-purple-800',
+      learning: 'bg-orange-100 text-orange-800',
+      spiritual: 'bg-indigo-100 text-indigo-800',
+      other: 'bg-gray-100 text-gray-800'
+    };
+    return colors[category || 'other'] || colors.other;
   };
 
   const completedCount = plans.filter(p => p.completed).length;
@@ -227,11 +204,11 @@ const DailyPlanComponent: React.FC = () => {
           <div>
             <h2 className="text-3xl font-bold text-gray-800">Daily Plan</h2>
             <p className="text-sm text-gray-600">
-              {new Date(selectedDate).toLocaleDateString('en-US', { 
-                weekday: 'long', 
-                year: 'numeric', 
-                month: 'long', 
-                day: 'numeric' 
+              {new Date(selectedDate).toLocaleDateString('en-US', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
               })}
             </p>
           </div>
@@ -291,7 +268,7 @@ const DailyPlanComponent: React.FC = () => {
         ) : (
           plans.map(plan => (
             <div
-              key={plan.id}
+              key={plan._id || plan.id}
               className={`flex items-start gap-4 p-4 rounded-lg border transition ${
                 plan.completed
                   ? 'bg-gray-50 border-gray-200 opacity-75'
@@ -299,7 +276,7 @@ const DailyPlanComponent: React.FC = () => {
               }`}
             >
               <button
-                onClick={() => handleToggle(plan.id, plan.completed)}
+                onClick={() => handleToggle(plan._id || plan.id || '', plan.completed)}
                 className={`flex-shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center transition mt-1 ${
                   plan.completed
                     ? 'bg-green-500 border-green-500'
@@ -317,9 +294,6 @@ const DailyPlanComponent: React.FC = () => {
                   <h3 className={`text-lg ${plan.completed ? 'line-through text-gray-500' : 'text-gray-800'}`}>
                     {plan.activity}
                   </h3>
-                  {!plan.completed && isOverdue(plan.date, plan.time) && (
-                    <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
-                  )}
                 </div>
 
                 {plan.description && (
@@ -330,51 +304,49 @@ const DailyPlanComponent: React.FC = () => {
 
                 <div className="flex gap-2 flex-wrap">
                   {plan.category && (
-                    <span className={`text-xs px-2 py-1 rounded ${categoryColor[plan.category]}`}>
+                    <span className={`text-xs px-2 py-1 rounded ${getCategoryColor(plan.category)}`}>
                       {plan.category}
                     </span>
                   )}
                   {plan.priority && (
-                    <span className={`flex items-center gap-1 text-xs px-2 py-1 rounded ${getPriorityColor(plan.priority)}`}>
-                      <Flag className={`w-3 h-3 ${getPriorityIconColor(plan.priority)}`} />
+                    <span className={`text-xs px-2 py-1 rounded ${getPriorityColor(plan.priority)}`}>
                       {plan.priority}
                     </span>
                   )}
-                  {plan.reminder && plan.reminderTime && (
-                    <span className="flex items-center gap-1 text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded">
-                      <Bell className="w-3 h-3" />
-                      {plan.reminderTime}
-                    </span>
-                  )}
                   {plan.duration && (
-                    <span className="flex items-center gap-1 text-xs text-gray-600 bg-gray-100 px-2 py-1 rounded">
-                      <AlarmClock className="w-3 h-3" />
-                      {plan.duration} mins
+                    <span className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-800">
+                      {plan.duration}min
                     </span>
                   )}
                 </div>
+
+                {plan.reminder && plan.reminderTime && (
+                  <div className="text-xs text-blue-600 mt-2 flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3" />
+                    Reminder at {plan.reminderTime}
+                  </div>
+                )}
               </div>
 
-              <div className="flex gap-2 flex-shrink-0">
+              <div className="flex gap-2">
                 <button
                   onClick={() => {
                     setFormData({
                       time: plan.time,
                       activity: plan.activity,
                       description: plan.description || '',
-                      category: (plan.category || 'personal') as 'work' | 'health' | 'personal' | 'learning' | 'other',
+                      category: (plan.category || 'personal') as any,
                       duration: plan.duration || 30,
-                      priority: plan.priority || 'Medium' as 'Low' | 'Medium' | 'High',
+                      priority: plan.priority || 'Medium',
                       reminder: plan.reminder || false,
                       reminderTime: plan.reminderTime || '',
-                      completed: plan.completed
                     });
                     setEditingId(plan._id || plan.id || '');
                     setShowAddModal(true);
                   }}
                   className="p-2 text-blue-600 hover:bg-blue-50 rounded transition"
                 >
-                  <Edit className="w-4 h-4" />
+                  <Edit2 className="w-4 h-4" />
                 </button>
                 <button
                   onClick={() => handleDelete(plan._id || plan.id || '')}
@@ -391,7 +363,7 @@ const DailyPlanComponent: React.FC = () => {
       {/* Add/Edit Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
             <h3 className="text-2xl font-bold text-gray-800 mb-6">
               {editingId ? 'Edit Activity' : 'Add Activity'}
             </h3>
@@ -458,6 +430,7 @@ const DailyPlanComponent: React.FC = () => {
                   <option value="health">Health</option>
                   <option value="personal">Personal</option>
                   <option value="learning">Learning</option>
+                  <option value="spiritual">Spiritual</option>
                   <option value="other">Other</option>
                 </select>
               </div>
@@ -469,7 +442,7 @@ const DailyPlanComponent: React.FC = () => {
                 </label>
                 <select
                   value={formData.priority}
-                  onChange={(e) => setFormData({ ...formData, priority: e.target.value as 'Low' | 'Medium' | 'High' })}
+                  onChange={(e) => setFormData({ ...formData, priority: e.target.value as any })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="Low">Low</option>
@@ -485,13 +458,12 @@ const DailyPlanComponent: React.FC = () => {
                 </label>
                 <input
                   type="number"
-                  value={formData.duration}
-                  onChange={(e) => setFormData({ ...formData, duration: parseInt(e.target.value) })}
                   min="5"
-                  step="5"
+                  max="480"
+                  value={formData.duration}
+                  onChange={(e) => setFormData({ ...formData, duration: parseInt(e.target.value) || 30 })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                 />
-                {errors.duration && <p className="text-red-600 text-sm mt-1">{errors.duration}</p>}
               </div>
 
               {/* Reminder */}

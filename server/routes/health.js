@@ -3,82 +3,166 @@ import HealthTracker from '../models/HealthTracker.js';
 
 const router = express.Router();
 
-// Get health data for a user on a specific date
-router.get('/:userId/:date', async (req, res) => {
-  try {
-    const { userId, date } = req.params;
-    const startDate = new Date(date);
-    const endDate = new Date(date);
-    endDate.setDate(endDate.getDate() + 1);
-
-    const health = await HealthTracker.findOne({
-      userId,
-      date: { $gte: startDate, $lt: endDate }
-    });
-
-    res.json(health || {});
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Get all health data for a user
+// ===== GET ALL HEALTH DATA FOR USER =====
 router.get('/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
-    const health = await HealthTracker.find({ userId }).sort({ date: -1 });
-    res.json(health);
+    const health = await HealthTracker.find({ userId })
+      .sort({ date: -1 })
+      .lean();
+    res.json(health || []);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('❌ Error fetching health data:', error.message);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
   }
 });
 
-// Create or update health data
+// ===== GET HEALTH DATA FOR SPECIFIC DATE =====
+router.get('/:userId/:date', async (req, res) => {
+  try {
+    const { userId, date } = req.params;
+    const health = await HealthTracker.findOne({ userId, date }).lean();
+    res.json(health || {});
+  } catch (error) {
+    console.error('❌ Error fetching health data for date:', error.message);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// ===== GET SINGLE HEALTH RECORD =====
+router.get('/single/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const health = await HealthTracker.findById(id).lean();
+    
+    if (!health) {
+      return res.status(404).json({
+        success: false,
+        error: 'Health record not found'
+      });
+    }
+    
+    res.json(health);
+  } catch (error) {
+    console.error('❌ Error fetching health record:', error.message);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// ===== CREATE OR UPDATE HEALTH DATA =====
 router.post('/', async (req, res) => {
   try {
     const { userId, date } = req.body;
-    const startDate = new Date(date);
-    const endDate = new Date(date);
-    endDate.setDate(endDate.getDate() + 1);
 
-    let health = await HealthTracker.findOne({
-      userId,
-      date: { $gte: startDate, $lt: endDate }
-    });
-
-    if (health) {
-      Object.assign(health, req.body);
-      await health.save();
-    } else {
-      health = new HealthTracker(req.body);
-      await health.save();
+    // Validation
+    if (!userId || !date) {
+      return res.status(400).json({
+        success: false,
+        error: 'userId and date are required'
+      });
     }
 
-    res.status(201).json(health);
+    // Check if health data exists for this date
+    let health = await HealthTracker.findOne({ userId, date });
+
+    if (health) {
+      // Update existing record
+      Object.assign(health, req.body);
+      health.updatedAt = new Date();
+      await health.save();
+      console.log('✅ Health data updated:', health._id);
+    } else {
+      // Create new record
+      health = new HealthTracker({
+        ...req.body,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      });
+      await health.save();
+      console.log('✅ Health data created:', health._id);
+    }
+
+    res.status(201).json({
+      success: true,
+      data: health
+    });
   } catch (error) {
-    res.status(400).json({ error: error.message });
+    console.error('❌ Error creating/updating health data:', error.message);
+    res.status(400).json({
+      success: false,
+      error: error.message
+    });
   }
 });
 
-// Update health data
+// ===== UPDATE HEALTH DATA =====
 router.put('/:id', async (req, res) => {
   try {
-    const updated = await HealthTracker.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    if (!updated) return res.status(404).json({ error: 'Health record not found' });
-    res.json(updated);
+    const { id } = req.params;
+    const updates = req.body;
+    updates.updatedAt = new Date();
+
+    const updated = await HealthTracker.findByIdAndUpdate(
+      id,
+      updates,
+      { new: true, runValidators: true }
+    );
+
+    if (!updated) {
+      return res.status(404).json({
+        success: false,
+        error: 'Health record not found'
+      });
+    }
+
+    console.log('✅ Health data updated:', id);
+    res.json({
+      success: true,
+      data: updated
+    });
   } catch (error) {
-    res.status(400).json({ error: error.message });
+    console.error('❌ Error updating health data:', error.message);
+    res.status(400).json({
+      success: false,
+      error: error.message
+    });
   }
 });
 
-// Delete health data
+// ===== DELETE HEALTH DATA =====
 router.delete('/:id', async (req, res) => {
   try {
-    const deleted = await HealthTracker.findByIdAndDelete(req.params.id);
-    if (!deleted) return res.status(404).json({ error: 'Health record not found' });
-    res.json({ message: 'Health record deleted successfully' });
+    const { id } = req.params;
+    const deleted = await HealthTracker.findByIdAndDelete(id);
+
+    if (!deleted) {
+      return res.status(404).json({
+        success: false,
+        error: 'Health record not found'
+      });
+    }
+
+    console.log('✅ Health data deleted:', id);
+    res.json({
+      success: true,
+      message: 'Health record deleted successfully',
+      data: deleted
+    });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('❌ Error deleting health data:', error.message);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
   }
 });
 
