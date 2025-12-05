@@ -86,7 +86,7 @@ const GoalsComponent: React.FC<GoalsComponentProps> = ({ onGoalsUpdate }) => {
     if (!window.confirm('Are you sure you want to delete this goal?')) return;
 
     try {
-      await goalAPI.delete(id);
+      await goalAPI.delete(id, user?.id || '');
       toast.success('Goal deleted successfully');
       loadData();
     } catch (error: any) {

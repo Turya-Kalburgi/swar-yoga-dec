@@ -87,7 +87,7 @@ const TasksComponent: React.FC<TasksComponentProps> = ({ onTasksUpdate }) => {
     if (!window.confirm('Are you sure you want to delete this task?')) return;
 
     try {
-      await taskAPI.delete(id);
+      await taskAPI.delete(id, user?.id || '');
       toast.success('Task deleted successfully');
       loadTasks();
     } catch (error: any) {

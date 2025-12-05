@@ -84,7 +84,7 @@ const MyWordComponent: React.FC<MyWordComponentProps> = ({ onMyWordsUpdate }) =>
     if (!window.confirm('Are you sure you want to delete this commitment?')) return;
 
     try {
-      await myWordAPI.delete(id);
+      await myWordAPI.delete(id, user?.id || '');
       toast.success('Commitment deleted successfully');
       loadMyWords();
     } catch (error: any) {

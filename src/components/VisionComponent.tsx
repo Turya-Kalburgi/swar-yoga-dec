@@ -85,7 +85,7 @@ const VisionComponent: React.FC<VisionComponentProps> = ({ onVisionsUpdate }) =>
     if (!window.confirm('Are you sure you want to delete this vision?')) return;
 
     try {
-      await visionAPI.delete(id);
+      await visionAPI.delete(id, user?.id || '');
       toast.success('Vision deleted successfully');
       loadVisions();
     } catch (error: any) {
