@@ -1,6 +1,8 @@
 import express from 'express';
 import crypto from 'crypto';
-import { query } from '../mysqlAdmin.js';
+import Admin from '../models/Admin.js';
+import Contact from '../models/Contact.js';
+import { v4 as uuidv4 } from 'uuid';
 
 const router = express.Router();
 
@@ -20,9 +22,10 @@ function verifyPassword(password, storedHash) {
   return hash === hashVerify;
 }
 
-// Generate admin userId from email (same pattern as regular users)
+// Generate admin userId from email
 function generateAdminUserId(email) {
-  return Buffer.from(email).toString('base64').replace(/=/g, '').substring(0, 20);
+  const normalized = email.toLowerCase();
+  return Buffer.from(normalized).toString('base64').replace(/=/g, '').substring(0, 20);
 }
 
 // ===== ADMIN SIGNIN =====
@@ -31,75 +34,64 @@ router.post('/signin', async (req, res) => {
     const { email, password } = req.body;
 
     if (!email || !password) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Email and password are required' 
+      return res.status(400).json({
+        success: false,
+        message: 'Email and password are required'
       });
     }
 
-    // Find admin user
-    const results = await query(
-      'SELECT * FROM admin_users WHERE email = ?',
-      [email]
-    );
+    const normalizedEmail = email.toLowerCase();
+    const admin = await Admin.findOne({ email: normalizedEmail });
 
-    if (results.length === 0) {
-      return res.status(401).json({ 
-        success: false, 
-        message: 'Invalid email or password' 
+    if (!admin) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid email or password'
       });
     }
-
-    const admin = results[0];
 
     // Check if account is active
-    if (admin.status !== 'active') {
-      return res.status(403).json({ 
-        success: false, 
-        message: `Account is ${admin.status}. Contact support.` 
+    if (admin.accountStatus !== 'active') {
+      return res.status(403).json({
+        success: false,
+        message: `Account is ${admin.accountStatus}. Contact support.`
       });
     }
 
     // Verify password
-    if (!verifyPassword(password, admin.password_hash)) {
-      return res.status(401).json({ 
-        success: false, 
-        message: 'Invalid email or password' 
+    if (!verifyPassword(password, admin.passwordHash)) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid email or password'
       });
     }
 
     // Log signin activity
-    await query(
-      `INSERT INTO admin_signin_logs 
-       (admin_id, email, ip_address, user_agent, device_type, browser, login_timestamp, session_status)
-       VALUES (?, ?, ?, ?, ?, ?, NOW(), 'active')`,
-      [
-        admin.id,
-        email,
-        req.ip || 'unknown',
-        req.headers['user-agent'] || '',
-        req.body.deviceType || 'web',
-        req.body.browser || 'unknown'
-      ]
-    );
+    admin.loginHistory.push({
+      date: new Date(),
+      ipAddress: req.ip || 'unknown',
+      userAgent: req.get('user-agent') || 'unknown',
+      device: req.body.deviceType || 'web',
+      browser: req.body.browser || 'unknown',
+      status: 'success'
+    });
 
-    // Update last login
-    await query(
-      'UPDATE admin_users SET last_login = NOW() WHERE id = ?',
-      [admin.id]
-    );
+    admin.lastLogin = new Date();
+    admin.loginCount += 1;
+    await admin.save();
 
-    // Return admin data with stable userId
+    console.log(`✅ Admin signin: ${email} (ID: ${admin.adminId})`);
+
     const adminData = {
       id: generateAdminUserId(email),
-      adminId: admin.id,
+      adminId: admin.adminId,
       email: admin.email,
       name: admin.name,
       role: admin.role,
+      permissions: admin.permissions,
+      accountStatus: admin.accountStatus,
       timestamp: new Date().toISOString()
     };
-
-    console.log(`✅ Admin signin: ${email} (ID: ${admin.id})`);
 
     res.json({
       success: true,
@@ -107,11 +99,11 @@ router.post('/signin', async (req, res) => {
       admin: adminData
     });
   } catch (error) {
-    console.error('❌ Admin signin error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Signin failed', 
-      error: error.message 
+    console.error('❌ Admin signin error:', error.message);
+    res.status(500).json({
+      success: false,
+      message: 'Signin failed',
+      error: error.message
     });
   }
 });
@@ -122,43 +114,52 @@ router.post('/signup', async (req, res) => {
     const { email, password, name, role = 'admin' } = req.body;
 
     if (!email || !password || !name) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Email, password, and name are required' 
+      return res.status(400).json({
+        success: false,
+        message: 'Email, password, and name are required'
       });
     }
+
+    if (password.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 6 characters'
+      });
+    }
+
+    const normalizedEmail = email.toLowerCase();
 
     // Check if email already exists
-    const existingAdmin = await query(
-      'SELECT id FROM admin_users WHERE email = ?',
-      [email]
-    );
+    const existingAdmin = await Admin.findOne({ email: normalizedEmail });
 
-    if (existingAdmin.length > 0) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Email already registered' 
+    if (existingAdmin) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email already registered'
       });
     }
 
-    // Hash password
-    const passwordHash = hashPassword(password);
+    // Create new admin
+    const adminId = generateAdminUserId(normalizedEmail);
+    const newAdmin = new Admin({
+      adminId,
+      email: normalizedEmail,
+      name,
+      passwordHash: hashPassword(password),
+      role,
+      permissions: role === 'superadmin' ? ['manage_users', 'manage_workshops', 'manage_orders', 'manage_contacts', 'manage_admins', 'view_analytics', 'view_reports', 'manage_settings'] : ['manage_workshops', 'manage_contacts'],
+      accountStatus: 'active',
+      loginHistory: [{
+        date: new Date(),
+        ipAddress: req.ip || 'unknown',
+        userAgent: req.get('user-agent') || 'unknown',
+        device: req.body.deviceType || 'web',
+        browser: req.body.browser || 'unknown',
+        status: 'success'
+      }]
+    });
 
-    // Insert new admin
-    const result = await query(
-      `INSERT INTO admin_users (email, password_hash, name, role, status, created_at)
-       VALUES (?, ?, ?, ?, 'active', NOW())`,
-      [email, passwordHash, name, role]
-    );
-
-    const adminId = result.insertId;
-
-    // Log activity
-    await query(
-      `INSERT INTO admin_activity_logs (admin_id, action, resource_type, details, timestamp)
-       VALUES (?, 'SIGNUP', 'admin_user', ?, NOW())`,
-      [adminId, JSON.stringify({ email, name, role })]
-    );
+    await newAdmin.save();
 
     console.log(`✅ New admin registered: ${email} (ID: ${adminId})`);
 
@@ -166,372 +167,466 @@ router.post('/signup', async (req, res) => {
       success: true,
       message: 'Admin account created successfully',
       admin: {
-        id: generateAdminUserId(email),
-        adminId,
-        email,
-        name,
-        role
+        id: adminId,
+        adminId: newAdmin.adminId,
+        email: newAdmin.email,
+        name: newAdmin.name,
+        role: newAdmin.role
       }
     });
   } catch (error) {
-    console.error('❌ Admin signup error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Signup failed', 
-      error: error.message 
+    console.error('❌ Admin signup error:', error.message);
+    res.status(500).json({
+      success: false,
+      message: 'Signup failed',
+      error: error.message
     });
   }
 });
 
-// ===== ADMIN LOGOUT / SIGNOUT =====
-router.post('/signout', async (req, res) => {
+// ===== GET ADMIN PROFILE =====
+router.get('/profile/:adminId', async (req, res) => {
   try {
-    const { adminId, email } = req.body;
+    const { adminId } = req.params;
 
-    if (!adminId && !email) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'adminId or email is required' 
+    const admin = await Admin.findOne({ adminId });
+
+    if (!admin) {
+      return res.status(404).json({
+        success: false,
+        message: 'Admin not found'
       });
     }
 
-    let whereClause, params;
-    if (adminId) {
-      whereClause = 'WHERE admin_id = ?';
-      params = [adminId];
-    } else {
-      whereClause = 'WHERE email = ?';
-      params = [email];
+    const adminData = {
+      id: adminId,
+      adminId: admin.adminId,
+      email: admin.email,
+      name: admin.name,
+      role: admin.role,
+      permissions: admin.permissions,
+      accountStatus: admin.accountStatus,
+      lastLogin: admin.lastLogin,
+      loginCount: admin.loginCount,
+      createdAt: admin.createdAt
+    };
+
+    res.json({
+      success: true,
+      data: adminData
+    });
+  } catch (error) {
+    console.error('❌ Error fetching admin profile:', error.message);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching profile',
+      error: error.message
+    });
+  }
+});
+
+// ===== UPDATE ADMIN PROFILE =====
+router.put('/profile/:adminId', async (req, res) => {
+  try {
+    const { adminId } = req.params;
+    const updates = req.body;
+
+    // Remove sensitive fields
+    delete updates.adminId;
+    delete updates.email;
+    delete updates.passwordHash;
+    delete updates.accountStatus;
+    delete updates.loginCount;
+
+    const admin = await Admin.findOne({ adminId });
+
+    if (!admin) {
+      return res.status(404).json({
+        success: false,
+        message: 'Admin not found'
+      });
     }
 
-    // Update logout timestamp for active sessions
-    await query(
-      `UPDATE admin_signin_logs 
-       SET logout_timestamp = NOW(), session_status = 'inactive'
-       WHERE session_status = 'active' ${whereClause}`,
-      params
-    );
+    // Update allowed fields
+    if (updates.name) admin.name = updates.name;
+    if (updates.metadata) admin.metadata = { ...admin.metadata, ...updates.metadata };
 
-    console.log(`✅ Admin signed out: ${email || adminId}`);
+    await admin.save();
+
+    console.log(`✅ Admin profile updated: ${adminId}`);
+
+    res.json({
+      success: true,
+      message: 'Profile updated successfully',
+      data: {
+        id: adminId,
+        email: admin.email,
+        name: admin.name,
+        role: admin.role
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error updating profile:', error.message);
+    res.status(500).json({
+      success: false,
+      message: 'Error updating profile',
+      error: error.message
+    });
+  }
+});
+
+// ===== CHANGE PASSWORD =====
+router.post('/change-password/:adminId', async (req, res) => {
+  try {
+    const { adminId } = req.params;
+    const { oldPassword, newPassword, confirmPassword } = req.body;
+
+    if (!oldPassword || !newPassword || !confirmPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'Old password and new password are required'
+      });
+    }
+
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'Passwords do not match'
+      });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 6 characters'
+      });
+    }
+
+    const admin = await Admin.findOne({ adminId });
+
+    if (!admin) {
+      return res.status(404).json({
+        success: false,
+        message: 'Admin not found'
+      });
+    }
+
+    // Verify old password
+    if (!verifyPassword(oldPassword, admin.passwordHash)) {
+      return res.status(401).json({
+        success: false,
+        message: 'Old password is incorrect'
+      });
+    }
+
+    admin.passwordHash = hashPassword(newPassword);
+    admin.metadata.lastPasswordChange = new Date();
+    await admin.save();
+
+    console.log(`✅ Admin password changed: ${adminId}`);
+
+    res.json({
+      success: true,
+      message: 'Password changed successfully'
+    });
+  } catch (error) {
+    console.error('❌ Error changing password:', error.message);
+    res.status(500).json({
+      success: false,
+      message: 'Error changing password',
+      error: error.message
+    });
+  }
+});
+
+// ===== CREATE NEW ADMIN =====
+router.post('/create', async (req, res) => {
+  try {
+    const { email, password, name, role = 'admin' } = req.body;
+
+    if (!email || !password || !name) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email, password, and name are required'
+      });
+    }
+
+    const normalizedEmail = email.toLowerCase();
+
+    // Check if email already exists
+    const existingAdmin = await Admin.findOne({ email: normalizedEmail });
+
+    if (existingAdmin) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email already registered'
+      });
+    }
+
+    // Create new admin
+    const adminId = generateAdminUserId(normalizedEmail);
+    const newAdmin = new Admin({
+      adminId,
+      email: normalizedEmail,
+      name,
+      passwordHash: hashPassword(password),
+      role,
+      permissions: role === 'superadmin' ? ['manage_users', 'manage_workshops', 'manage_orders', 'manage_contacts', 'manage_admins', 'view_analytics', 'view_reports', 'manage_settings'] : ['manage_workshops', 'manage_contacts'],
+      accountStatus: 'active'
+    });
+
+    await newAdmin.save();
+
+    console.log(`✅ New admin created: ${email} (ID: ${adminId})`);
+
+    res.status(201).json({
+      success: true,
+      message: 'Admin account created successfully',
+      data: {
+        id: adminId,
+        email: newAdmin.email,
+        name: newAdmin.name,
+        role: newAdmin.role
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error creating admin:', error.message);
+    res.status(500).json({
+      success: false,
+      message: 'Error creating admin',
+      error: error.message
+    });
+  }
+});
+
+// ===== GET ALL ADMINS =====
+router.get('/all', async (req, res) => {
+  try {
+    const admins = await Admin.find({}, '-passwordHash').lean();
+
+    res.json({
+      success: true,
+      count: admins.length,
+      data: admins
+    });
+  } catch (error) {
+    console.error('❌ Error fetching admins:', error.message);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching admins',
+      error: error.message
+    });
+  }
+});
+
+// ===== DEACTIVATE ADMIN =====
+router.post('/deactivate/:adminId', async (req, res) => {
+  try {
+    const { adminId } = req.params;
+
+    const admin = await Admin.findOne({ adminId });
+
+    if (!admin) {
+      return res.status(404).json({
+        success: false,
+        message: 'Admin not found'
+      });
+    }
+
+    admin.accountStatus = 'inactive';
+    await admin.save();
+
+    console.log(`✅ Admin deactivated: ${adminId}`);
+
+    res.json({
+      success: true,
+      message: 'Admin deactivated successfully'
+    });
+  } catch (error) {
+    console.error('❌ Error deactivating admin:', error.message);
+    res.status(500).json({
+      success: false,
+      message: 'Error deactivating admin',
+      error: error.message
+    });
+  }
+});
+
+// ===== CONTACT MESSAGES (moved from admin endpoint) =====
+
+// Get all contact messages
+router.get('/contact/messages', async (req, res) => {
+  try {
+    const { status, priority, limit = 100, skip = 0 } = req.query;
+
+    let query = {};
+    if (status) query.status = status;
+    if (priority) query.priority = priority;
+
+    const messages = await Contact.find(query)
+      .sort({ submittedAt: -1 })
+      .limit(parseInt(limit))
+      .skip(parseInt(skip))
+      .lean();
+
+    const total = await Contact.countDocuments(query);
+
+    res.json({
+      success: true,
+      count: messages.length,
+      total,
+      messages
+    });
+  } catch (error) {
+    console.error('❌ Error fetching contact messages:', error.message);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching messages',
+      error: error.message
+    });
+  }
+});
+
+// Get single contact message
+router.get('/contact/messages/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const message = await Contact.findOne({
+      $or: [{ contactId: id }, { _id: id }]
+    });
+
+    if (!message) {
+      return res.status(404).json({
+        success: false,
+        message: 'Contact message not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: message
+    });
+  } catch (error) {
+    console.error('❌ Error fetching contact message:', error.message);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching message',
+      error: error.message
+    });
+  }
+});
+
+// Update contact message status/reply
+router.put('/contact/messages/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status, priority, replyMessage, assignedTo } = req.body;
+
+    const message = await Contact.findOne({
+      $or: [{ contactId: id }, { _id: id }]
+    });
+
+    if (!message) {
+      return res.status(404).json({
+        success: false,
+        message: 'Contact message not found'
+      });
+    }
+
+    if (status) message.status = status;
+    if (priority) message.priority = priority;
+    if (replyMessage) {
+      message.replyMessage = replyMessage;
+      message.repliedAt = new Date();
+      message.status = 'replied';
+    }
+    if (assignedTo) message.assignedTo = assignedTo;
+
+    await message.save();
+
+    console.log(`✅ Contact message updated: ${id}`);
+
+    res.json({
+      success: true,
+      message: 'Message updated successfully',
+      data: message
+    });
+  } catch (error) {
+    console.error('❌ Error updating contact message:', error.message);
+    res.status(500).json({
+      success: false,
+      message: 'Error updating message',
+      error: error.message
+    });
+  }
+});
+
+// Delete contact message
+router.delete('/contact/messages/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const message = await Contact.findOneAndDelete({
+      $or: [{ contactId: id }, { _id: id }]
+    });
+
+    if (!message) {
+      return res.status(404).json({
+        success: false,
+        message: 'Contact message not found'
+      });
+    }
+
+    console.log(`✅ Contact message deleted: ${id}`);
+
+    res.json({
+      success: true,
+      message: 'Message deleted successfully'
+    });
+  } catch (error) {
+    console.error('❌ Error deleting contact message:', error.message);
+    res.status(500).json({
+      success: false,
+      message: 'Error deleting message',
+      error: error.message
+    });
+  }
+});
+
+// ===== ADMIN SIGNOUT =====
+router.post('/signout', async (req, res) => {
+  try {
+    const { adminId } = req.body;
+
+    if (!adminId) {
+      return res.status(400).json({
+        success: false,
+        message: 'adminId is required'
+      });
+    }
+
+    const admin = await Admin.findOne({ adminId });
+
+    if (!admin) {
+      return res.status(404).json({
+        success: false,
+        message: 'Admin not found'
+      });
+    }
+
+    console.log(`✅ Admin signed out: ${adminId}`);
 
     res.json({
       success: true,
       message: 'Admin signed out successfully'
     });
   } catch (error) {
-    console.error('❌ Admin signout error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Signout failed', 
-      error: error.message 
-    });
-  }
-});
-
-// ===== CONTACT MESSAGES =====
-
-// Get all contact messages
-router.get('/contact/messages', async (req, res) => {
-  try {
-    const status = req.query.status;
-    const priority = req.query.priority;
-
-    let sql = 'SELECT * FROM contact_messages WHERE 1=1';
-    const params = [];
-
-    if (status) {
-      sql += ' AND status = ?';
-      params.push(status);
-    }
-
-    if (priority) {
-      sql += ' AND priority = ?';
-      params.push(priority);
-    }
-
-    sql += ' ORDER BY submitted_at DESC LIMIT 1000';
-
-    const messages = await query(sql, params);
-
-    res.json({
-      success: true,
-      count: messages.length,
-      messages
-    });
-  } catch (error) {
-    console.error('❌ Error fetching contact messages:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Failed to fetch messages', 
-      error: error.message 
-    });
-  }
-});
-
-// Create contact message
-router.post('/contact/messages', async (req, res) => {
-  try {
-    const { name, email, countryCode, whatsapp, subject, message } = req.body;
-
-    if (!name || !email || !message) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Name, email, and message are required' 
-      });
-    }
-
-    const result = await query(
-      `INSERT INTO contact_messages 
-       (name, email, country_code, whatsapp, subject, message, ip_address, user_agent, submitted_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
-      [
-        name,
-        email,
-        countryCode || '+91',
-        whatsapp || '',
-        subject || '',
-        message,
-        req.ip || 'unknown',
-        req.headers['user-agent'] || ''
-      ]
-    );
-
-    console.log(`✅ Contact message received from: ${email}`);
-
-    res.status(201).json({
-      success: true,
-      message: 'Message received successfully',
-      messageId: result.insertId
-    });
-  } catch (error) {
-    console.error('❌ Error creating contact message:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Failed to save message', 
-      error: error.message 
-    });
-  }
-});
-
-// Update contact message status
-router.put('/contact/messages/:id/status', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { status, priority, replyMessage, assignedTo } = req.body;
-
-    let updateFields = [];
-    let params = [];
-
-    if (status) {
-      updateFields.push('status = ?');
-      params.push(status);
-
-      if (status === 'replied' && replyMessage) {
-        updateFields.push('reply_message = ?');
-        updateFields.push('replied_at = NOW()');
-        params.push(replyMessage);
-      }
-    }
-
-    if (priority) {
-      updateFields.push('priority = ?');
-      params.push(priority);
-    }
-
-    if (assignedTo) {
-      updateFields.push('assigned_to = ?');
-      params.push(assignedTo);
-    }
-
-    if (updateFields.length === 0) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'No fields to update' 
-      });
-    }
-
-    params.push(id);
-
-    await query(
-      `UPDATE contact_messages SET ${updateFields.join(', ')} WHERE id = ?`,
-      params
-    );
-
-    console.log(`✅ Contact message ${id} updated`);
-
-    res.json({
-      success: true,
-      message: 'Message updated successfully'
-    });
-  } catch (error) {
-    console.error('❌ Error updating contact message:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Failed to update message', 
-      error: error.message 
-    });
-  }
-});
-
-// ===== SIGNIN LOGS =====
-
-// Get signin logs
-router.get('/signin/logs', async (req, res) => {
-  try {
-    const adminId = req.query.adminId;
-    const limit = parseInt(req.query.limit) || 100;
-
-    let sql = 'SELECT * FROM admin_signin_logs WHERE 1=1';
-    const params = [];
-
-    if (adminId) {
-      sql += ' AND admin_id = ?';
-      params.push(adminId);
-    }
-
-    sql += ' ORDER BY login_timestamp DESC LIMIT ?';
-    params.push(limit);
-
-    const logs = await query(sql, params);
-
-    res.json({
-      success: true,
-      count: logs.length,
-      logs
-    });
-  } catch (error) {
-    console.error('❌ Error fetching signin logs:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Failed to fetch logs', 
-      error: error.message 
-    });
-  }
-});
-
-// ===== SIGNUP USERS (managed by admin) =====
-
-// Get all signup users
-router.get('/users/signup', async (req, res) => {
-  try {
-    const status = req.query.status;
-    const source = req.query.source;
-    const limit = parseInt(req.query.limit) || 1000;
-
-    let sql = 'SELECT * FROM signup_users WHERE 1=1';
-    const params = [];
-
-    if (status) {
-      sql += ' AND status = ?';
-      params.push(status);
-    }
-
-    if (source) {
-      sql += ' AND source = ?';
-      params.push(source);
-    }
-
-    sql += ' ORDER BY registration_date DESC LIMIT ?';
-    params.push(limit);
-
-    const users = await query(sql, params);
-
-    res.json({
-      success: true,
-      count: users.length,
-      users
-    });
-  } catch (error) {
-    console.error('❌ Error fetching signup users:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Failed to fetch users', 
-      error: error.message 
-    });
-  }
-});
-
-// Add signup user (manually)
-router.post('/users/signup', async (req, res) => {
-  try {
-    const { name, email, phone, countryCode, country, state, gender, age, profession } = req.body;
-
-    if (!name || !email) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Name and email are required' 
-      });
-    }
-
-    const result = await query(
-      `INSERT INTO signup_users 
-       (name, email, phone, country_code, country, state, gender, age, profession, source, status, registration_date)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'manual', 'active', NOW())`,
-      [name, email, phone || '', countryCode || '+91', country || 'India', state || '', gender || 'other', age || 0, profession || '']
-    );
-
-    console.log(`✅ Signup user added: ${email}`);
-
-    res.status(201).json({
-      success: true,
-      message: 'User added successfully',
-      userId: result.insertId
-    });
-  } catch (error) {
-    console.error('❌ Error adding signup user:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Failed to add user', 
-      error: error.message 
-    });
-  }
-});
-
-// Update signup user
-router.put('/users/signup/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { status, notes } = req.body;
-
-    let updateFields = [];
-    let params = [];
-
-    if (status) {
-      updateFields.push('status = ?');
-      params.push(status);
-    }
-
-    if (notes) {
-      updateFields.push('notes = ?');
-      params.push(notes);
-    }
-
-    if (updateFields.length === 0) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'No fields to update' 
-      });
-    }
-
-    params.push(id);
-
-    await query(
-      `UPDATE signup_users SET ${updateFields.join(', ')} WHERE id = ?`,
-      params
-    );
-
-    console.log(`✅ Signup user ${id} updated`);
-
-    res.json({
-      success: true,
-      message: 'User updated successfully'
-    });
-  } catch (error) {
-    console.error('❌ Error updating signup user:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Failed to update user', 
-      error: error.message 
+    console.error('❌ Admin signout error:', error.message);
+    res.status(500).json({
+      success: false,
+      message: 'Signout failed',
+      error: error.message
     });
   }
 });
