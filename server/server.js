@@ -139,444 +139,200 @@ app.post('/api/admin/backup/restore', async (req, res) => {
   }
 });
 
-// ===== PAGE STATE PERSISTENCE ENDPOINTS =====
-// Save page state - called when user navigates to a new page
-app.post('/api/page-state', async (req, res) => {
-  try {
-    const userId = req.headers['x-user-id'];
-    if (!userId) {
-      return res.status(400).json({ error: 'userId is required' });
-    }
+// ========================================
+// ✅ MONGODB ONLY - ALL DATA GOES TO CLOUD
+// ========================================
 
-    const { pageName, pageData } = req.body;
-    if (!pageName || !pageData || !pageData.pathname) {
-      return res.status(400).json({ error: 'pageName and pageData.pathname are required' });
-    }
-
-    const db = await readData();
-    if (!db.pageStates) db.pageStates = [];
-
-    // Find existing page state for this user, or create new
-    const existingIdx = db.pageStates.findIndex(ps => ps.userId === userId);
-    
-    const pageState = {
-      userId,
-      pageName,
-      pathname: pageData.pathname,
-      search: pageData.search || '',
-      hash: pageData.hash || '',
-      savedAt: new Date().toISOString()
-    };
-
-    if (existingIdx !== -1) {
-      db.pageStates[existingIdx] = pageState;
-    } else {
-      db.pageStates.push(pageState);
-    }
-
-    await writeData(db);
-    res.json({ success: true, pageState });
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to save page state', message: error.message });
-  }
-});
-
-// Get last page state for user
-app.get('/api/page-state', async (req, res) => {
-  try {
-    const userId = req.headers['x-user-id'];
-    if (!userId) {
-      return res.status(400).json({ error: 'userId is required' });
-    }
-
-    const db = await readData();
-    const pageStates = db.pageStates || [];
-    const pageState = pageStates.find(ps => ps.userId === userId);
-
-    if (!pageState) {
-      return res.json({ success: true, pageState: null });
-    }
-
-    // Return in the format the frontend expects
-    const formattedPageState = {
-      pageName: pageState.pageName,
-      pageData: {
-        pathname: pageState.pathname,
-        search: pageState.search || '',
-        hash: pageState.hash || ''
-      },
-      savedAt: pageState.savedAt
-    };
-
-    res.json({ success: true, pageState: formattedPageState });
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to get page state', message: error.message });
-  }
-});
-
-// Clear page state - called on logout
-app.delete('/api/page-state', async (req, res) => {
-  try {
-    const userId = req.headers['x-user-id'];
-    if (!userId) {
-      return res.status(400).json({ error: 'userId is required' });
-    }
-
-    const db = await readData();
-    if (!db.pageStates) db.pageStates = [];
-
-    db.pageStates = db.pageStates.filter(ps => ps.userId !== userId);
-    await writeData(db);
-
-    res.json({ success: true, message: 'Page state cleared' });
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to clear page state', message: error.message });
-  }
-});
-
-// Resolve data file path. decodeURIComponent fixes percent-encoded spaces (e.g. 'project%2013')
-const serverDir = decodeURIComponent(new URL('.', import.meta.url).pathname);
-const DATA_FILE = path.resolve(serverDir, '../server-data.json');
-
-async function readData() {
-  try {
-    const txt = await fs.readFile(DATA_FILE, 'utf-8');
-    return JSON.parse(txt);
-  } catch (err) {
-    const initial = { users: [], visions: [], goals: [], tasks: [], todos: [], dailyWords: [], health: [], routines: [], people: [], affirmations: [], blogPosts: [] };
-    await writeData(initial);
-    return initial;
-  }
-}
-
-async function writeData(data) {
-  await fs.writeFile(DATA_FILE, JSON.stringify(data, null, 2), 'utf-8');
-}
-
-function nextId() {
-  return Date.now();
-}
+import User from './models/User.js';
+import SignupData from './models/SignupData.js';
+import SigninData from './models/SigninData.js';
 
 // Health / test endpoint
 app.get('/api/health', (req, res) => {
-  res.json({ ok: true, time: Date.now() });
+  res.json({ ok: true, time: Date.now(), database: 'MongoDB Atlas' });
 });
 
-// Simple auth: register & login (dev only - not for production)
+// ===== USER AUTH ROUTES (MONGODB ONLY) =====
+
+// Register user (save to MongoDB)
 app.post('/api/auth/register', async (req, res) => {
-  const { email, password, name, phone, countryCode, country, state, gender, age, profession } = req.body;
-  if (!email || !password) return res.status(400).json({ error: 'email and password required' });
+  try {
+    const { email, password, name, phone, countryCode, country, state, gender, age, profession } = req.body;
+    
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password are required' });
+    }
 
-  const db = await readData();
-  const exists = db.users.find(u => u.email === email);
-  if (exists) return res.status(400).json({ error: 'User already exists' });
+    // Check if user already exists
+    const existingUser = await User.findOne({ email: email.toLowerCase() });
+    if (existingUser) {
+      return res.status(409).json({ error: 'User already exists' });
+    }
 
-  const user = { 
-    id: String(nextId()), 
-    email, 
-    password, 
-    name: name || email.split('@')[0], 
-    phone,
-    countryCode,
-    country,
-    state,
-    gender,
-    age,
-    profession,
-    isNewUser: true,
-    registrationDate: new Date().toISOString()
-  };
-  
-  db.users.push(user);
-  
-  // Also save to signupData for admin tracking
-  if (!db.signupData) db.signupData = [];
-  db.signupData.push({
-    id: user.id,
-    name: user.name,
-    email: user.email,
-    phone: user.phone,
-    countryCode: user.countryCode,
-    country: user.country,
-    state: user.state,
-    gender: user.gender,
-    age: user.age,
-    profession: user.profession,
-    registrationDate: user.registrationDate,
-    status: 'active',
-    source: 'signup'
-  });
-  
-  await writeData(db);
+    // Create new user
+    const newUser = new User({
+      userId: email.toLowerCase(),
+      email: email.toLowerCase(),
+      password,
+      name: name || email.split('@')[0],
+      phone,
+      countryCode,
+      country,
+      state,
+      gender,
+      age,
+      isNewUser: true,
+      registrationDate: new Date().toISOString()
+    });
 
-  const { password: _p, ...publicUser } = user;
-  res.json(publicUser);
+    await newUser.save();
+    console.log(`✅ User registered: ${email}`);
+
+    // Also record signup data
+    const signupData = new SignupData({
+      name: newUser.name,
+      email: newUser.email,
+      phone: newUser.phone,
+      countryCode: newUser.countryCode,
+      country: newUser.country,
+      state: newUser.state,
+      gender: newUser.gender,
+      age: newUser.age,
+      profession: profession || '',
+      registrationDate: new Date().toISOString(),
+      status: 'active',
+      source: 'signup'
+    });
+
+    await signupData.save();
+
+    res.status(201).json({
+      id: newUser.userId,
+      email: newUser.email,
+      name: newUser.name,
+      message: 'Registration successful'
+    });
+  } catch (error) {
+    console.error('❌ Registration error:', error.message);
+    res.status(500).json({ error: 'Registration failed', message: error.message });
+  }
 });
 
+// Login user (verify against MongoDB)
 app.post('/api/auth/login', async (req, res) => {
-  const { email, password } = req.body;
-  if (!email || !password) return res.status(400).json({ error: 'email and password required' });
+  try {
+    const { email, password } = req.body;
+    
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password are required' });
+    }
 
-  const db = await readData();
-  const user = db.users.find(u => u.email === email && u.password === password);
-  if (!user) {
-    // Record failed login attempt
-    if (!db.signinData) db.signinData = [];
-    db.signinData.push({
-      id: String(nextId()),
-      email: email,
+    // Find user in MongoDB
+    const user = await User.findOne({ email: email.toLowerCase() });
+    if (!user || user.password !== password) {
+      // Record failed signin
+      const signinData = new SigninData({
+        email: email.toLowerCase(),
+        timestamp: new Date().toISOString(),
+        status: 'failed',
+        ip: req.ip || 'unknown',
+        device: req.headers['user-agent'] || 'unknown'
+      });
+      await signinData.save();
+
+      return res.status(401).json({ error: 'Invalid email or password' });
+    }
+
+    // Record successful signin
+    const signinData = new SigninData({
+      email: user.email,
+      name: user.name,
       timestamp: new Date().toISOString(),
-      status: 'failed',
-      ip: 'unknown',
+      status: 'success',
+      ip: req.ip || 'unknown',
       device: req.headers['user-agent'] || 'unknown'
     });
-    await writeData(db);
-    return res.status(401).json({ error: 'Invalid credentials' });
-  }
+    await signinData.save();
 
-  // Record successful login
-  if (!db.signinData) db.signinData = [];
-  db.signinData.push({
-    id: String(nextId()),
-    email: user.email,
-    name: user.name,
-    timestamp: new Date().toISOString(),
-    status: 'success',
-    ip: 'unknown',
-    device: req.headers['user-agent'] || 'unknown'
-  });
-  
-  await writeData(db);
+    console.log(`✅ User logged in: ${email}`);
 
-  const { password: _p, ...publicUser } = user;
-  res.json(publicUser);
-});
-
-// Admin endpoints for viewing signup data
-app.get('/api/admin/signup-data', async (req, res) => {
-  try {
-    const db = await readData();
-    const signupData = db.signupData || [];
-    res.json(signupData);
+    res.json({
+      id: user.userId,
+      email: user.email,
+      name: user.name,
+      message: 'Login successful'
+    });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch signup data' });
+    console.error('❌ Login error:', error.message);
+    res.status(500).json({ error: 'Login failed', message: error.message });
   }
 });
 
-// Admin endpoints for viewing signin data
-app.get('/api/admin/signin-data', async (req, res) => {
-  try {
-    const db = await readData();
-    const signinData = db.signinData || [];
-    res.json(signinData);
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch signin data' });
-  }
-});
-
-// Record signup data (called from frontend after registration)
+// Record signup data (fallback endpoint if needed)
 app.post('/api/auth/record-signup', async (req, res) => {
   try {
-    const db = await readData();
-    if (!db.signupData) db.signupData = [];
-    
-    const signupRecord = {
-      id: String(nextId()),
+    const signupData = new SignupData({
       ...req.body,
       registrationDate: new Date().toISOString(),
       status: 'active',
       source: 'signup'
-    };
-    
-    db.signupData.push(signupRecord);
-    await writeData(db);
-    
-    res.json(signupRecord);
+    });
+
+    await signupData.save();
+    console.log(`✅ Signup recorded: ${req.body.email}`);
+    res.json(signupData);
   } catch (error) {
-    res.status(500).json({ error: 'Failed to record signup' });
+    console.error('❌ Signup record error:', error.message);
+    res.status(500).json({ error: 'Failed to record signup', message: error.message });
   }
 });
 
-// Record signin data (called from frontend after login)
+// Record signin data (fallback endpoint if needed)
 app.post('/api/auth/record-signin', async (req, res) => {
   try {
-    const db = await readData();
-    if (!db.signinData) db.signinData = [];
-    
-    const signinRecord = {
-      id: String(nextId()),
+    const signinData = new SigninData({
       email: req.body.email,
       name: req.body.name || '',
       timestamp: new Date().toISOString(),
       status: req.body.success ? 'success' : 'failed',
       ip: req.ip || 'unknown',
       device: req.body.device || req.headers['user-agent'] || 'unknown'
-    };
-    
-    db.signinData.push(signinRecord);
-    await writeData(db);
-    
-    res.json(signinRecord);
+    });
+
+    await signinData.save();
+    console.log(`✅ Signin recorded: ${req.body.email}`);
+    res.json(signinData);
   } catch (error) {
-    res.status(500).json({ error: 'Failed to record signin' });
+    console.error('❌ Signin record error:', error.message);
+    res.status(500).json({ error: 'Failed to record signin', message: error.message });
   }
 });
 
-// Generic CRUD for resources: visions, goals, tasks, todos, daily-words
-const resources = {
-  visions: 'visions',
-  goals: 'goals',
-  tasks: 'tasks',
-  todos: 'todos',
-  'daily-words': 'dailyWords',
-  affirmations: 'affirmations',
-  health: 'health',
-  routines: 'routines',
-  people: 'people',
-  'blog-posts': 'blogPosts'
-};
+// Admin: Get all signup data
+app.get('/api/admin/signup-data', async (req, res) => {
+  try {
+    const signupData = await SignupData.find().sort({ registrationDate: -1 });
+    res.json(signupData);
+  } catch (error) {
+    console.error('❌ Error fetching signup data:', error.message);
+    res.status(500).json({ error: 'Failed to fetch signup data', message: error.message });
+  }
+});
 
-Object.entries(resources).forEach(([route, key]) => {
-  // list - filter by userId
-  app.get(`/api/${route}`, async (req, res) => {
-    // Get userId from header or query params
-    const userId = req.headers['x-user-id'] || req.query.userId;
-    
-    // If Supabase is available and this resource is supported, use it.
-    const supabaseResources = new Set(['visions','goals','tasks','todos','people','affirmations']);
-    if (SUPABASE_AVAILABLE && supabaseResources.has(route)) {
-      try {
-        const items = await supabaseClient.getResource(key, req.query);
-        return res.json(items);
-      } catch (err) {
-        console.error(`Supabase getResource(${key}) error:`, err.message || err);
-        // fall through to JSON fallback
-      }
-    }
-
-    const db = await readData();
-    let items = db[key] || [];
-    
-    // Filter by userId if provided
-    if (userId) {
-      items = items.filter(it => it.userId === userId);
-    }
-    
-    // optional year or date filtering
-    const { year, date } = req.query;
-    if (year) items = items.filter(it => it.year === Number(year));
-    if (date) items = items.filter(it => it.date === date);
-    
-    res.json(items);
-  });
-
-  // create - add userId to item
-  app.post(`/api/${route}`, async (req, res) => {
-    // Get userId from header or body
-    const userId = req.headers['x-user-id'] || req.body.userId;
-    
-    if (!userId) {
-      return res.status(400).json({ error: 'userId is required' });
-    }
-    
-    // Prefer Supabase for supported resources when available.
-    const supabaseCreateResources = new Set(['visions','goals','tasks','todos','people','affirmations']);
-    if (SUPABASE_AVAILABLE && supabaseCreateResources.has(route)) {
-      try {
-        const created = await supabaseClient.createResource(key, req.body);
-        return res.json(created);
-      } catch (err) {
-        console.error(`Supabase createResource(${key}) error:`, err.message || err);
-        // fall through to JSON fallback
-      }
-    }
-
-    const db = await readData();
-    const item = { id: nextId(), ...req.body, userId };
-    db[key] = db[key] || [];
-    db[key].push(item);
-    await writeData(db);
-    res.json(item);
-  });
-
-  // update - verify userId ownership
-  app.put(`/api/${route}/:id`, async (req, res) => {
-    const id = Number(req.params.id);
-    const userId = req.headers['x-user-id'] || req.body.userId;
-    
-    if (!userId) {
-      return res.status(400).json({ error: 'userId is required' });
-    }
-    
-    // Supabase path for supported resources
-    const supabaseUpdateResources = new Set(['visions','goals','tasks','todos','people','affirmations']);
-    if (SUPABASE_AVAILABLE && supabaseUpdateResources.has(route)) {
-      try {
-        const updated = await supabaseClient.updateResource(key, id, req.body);
-        return res.json(updated);
-      } catch (err) {
-        console.error(`Supabase updateResource(${key}) error:`, err.message || err);
-        // fall through to JSON fallback
-      }
-    }
-
-    const db = await readData();
-    const list = db[key] || [];
-    const idx = list.findIndex(i => Number(i.id) === id);
-    
-    if (idx === -1) return res.status(404).json({ error: 'Not found' });
-    
-    // Verify userId ownership
-    if (list[idx].userId && list[idx].userId !== userId) {
-      return res.status(403).json({ error: 'Unauthorized' });
-    }
-    
-    list[idx] = { ...list[idx], ...req.body, userId };
-    await writeData(db);
-    res.json(list[idx]);
-  });
-
-  // delete - verify userId ownership
-  app.delete(`/api/${route}/:id`, async (req, res) => {
-    const id = Number(req.params.id);
-    const userId = req.headers['x-user-id'];
-    
-    if (!userId) {
-      return res.status(400).json({ error: 'userId is required' });
-    }
-    
-    // Supabase path for supported resources
-    const supabaseDeleteResources = new Set(['visions','goals','tasks','todos','people','affirmations']);
-    if (SUPABASE_AVAILABLE && supabaseDeleteResources.has(route)) {
-      try {
-        const result = await supabaseClient.deleteResource(key, id);
-        return res.json(result);
-      } catch (err) {
-        console.error(`Supabase deleteResource(${key}) error:`, err.message || err);
-        // fall through to JSON fallback
-      }
-    }
-
-    const db = await readData();
-    const list = db[key] || [];
-    const idx = list.findIndex(i => Number(i.id) === id);
-    
-    if (idx === -1) return res.status(404).json({ error: 'Not found' });
-    
-    // Verify userId ownership
-    if (list[idx].userId && list[idx].userId !== userId) {
-      return res.status(403).json({ error: 'Unauthorized' });
-    }
-    
-    db[key] = list.filter(i => Number(i.id) !== id);
-    await writeData(db);
-    res.json({ success: true });
-  });
+// Admin: Get all signin data
+app.get('/api/admin/signin-data', async (req, res) => {
+  try {
+    const signinData = await SigninData.find().sort({ timestamp: -1 }).limit(1000);
+    res.json(signinData);
+  } catch (error) {
+    console.error('❌ Error fetching signin data:', error.message);
+    res.status(500).json({ error: 'Failed to fetch signin data', message: error.message });
+  }
 });
 
 app.listen(PORT, async () => {
-  console.log(`Dev API server running on http://localhost:${PORT}`);
-  console.log(`Data file: ${DATA_FILE}`);
+  console.log(`🚀 API server running on http://localhost:${PORT}`);
+  console.log(`📊 Database: MongoDB Atlas (swaryogadb)`);
   
   // Create daily backup on server startup
   console.log('\n🔄 Attempting to create daily backup...');
