@@ -8,15 +8,29 @@ function getUserIdFromHeaders(req: Request): string {
   return (req.headers['x-user-id'] as string) || req.params.userId || 'anonymous';
 }
 
-router.get('/:userId', async (req: Request, res: Response): Promise<void> => {
+router.get('/:userIdentifier', async (req: Request, res: Response): Promise<void> => {
   try {
-    const userId = req.params.userId || getUserIdFromHeaders(req);
-    console.log(`📖 Fetching cart for user: ${userId}`);
+    const userIdentifier = req.params.userIdentifier || getUserIdFromHeaders(req);
+    console.log(`📖 Fetching cart for user: ${userIdentifier}`);
 
-    let cart = await Cart.findOne({ userId }).populate('items.workshopId').lean();
+    // Find by userId OR email
+    let cart = await Cart.findOne({ 
+      $or: [
+        { userId: userIdentifier },
+        { email: userIdentifier }
+      ]
+    }).lean();
 
     if (!cart) {
-      cart = { userId, items: [], total: 0 } as any;
+      // Return empty cart structure
+      cart = { 
+        userId: userIdentifier, 
+        email: userIdentifier,
+        items: [], 
+        totalItems: 0,
+        totalPrice: 0,
+        status: 'active'
+      } as any;
     }
 
     console.log(`✅ Retrieved cart with ${(cart as any).items?.length || 0} items`);
@@ -31,28 +45,61 @@ router.get('/:userId', async (req: Request, res: Response): Promise<void> => {
 router.post('/', async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = getUserIdFromHeaders(req);
-    const { workshopId, quantity = 1 } = req.body;
+    const { 
+      email, 
+      workshopId, 
+      workshopTitle, 
+      instructor, 
+      price, 
+      quantity = 1,
+      currency = 'INR',
+      image
+    } = req.body;
 
     console.log(`✍️ Adding item to cart for user: ${userId}`);
 
-    if (!workshopId) {
-      res.status(400).json({ success: false, message: 'workshopId is required' });
+    if (!workshopId || !workshopTitle || !instructor || !price) {
+      res.status(400).json({ 
+        success: false, 
+        message: 'Missing required fields: workshopId, workshopTitle, instructor, price' 
+      });
       return;
     }
 
     let cart = await Cart.findOne({ userId });
 
     if (!cart) {
-      cart = new Cart({ userId, items: [] });
+      cart = new Cart({ 
+        userId, 
+        email: email || userId, 
+        items: [],
+        status: 'active'
+      });
     }
 
-    const existingItem = cart.items.find(item => (item.workshopId as any).toString() === workshopId);
+    // Check if item already exists
+    const existingItem = cart.items.find(item => item.workshopId === workshopId);
 
     if (existingItem) {
       existingItem.quantity += quantity;
+      existingItem.addedAt = new Date();
     } else {
-      cart.items.push({ workshopId, quantity } as any);
+      cart.items.push({
+        workshopId,
+        workshopTitle,
+        instructor,
+        price,
+        currency,
+        quantity,
+        image: image || null,
+        addedAt: new Date()
+      });
     }
+
+    // Calculate totals
+    cart.totalItems = cart.items.reduce((sum, item) => sum + item.quantity, 0);
+    cart.totalPrice = cart.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    cart.lastModified = new Date();
 
     await cart.save();
 

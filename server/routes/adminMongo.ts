@@ -9,6 +9,9 @@ import Vision from '../models/Vision.js';
 import Goal from '../models/Goal.js';
 import Task from '../models/Task.js';
 import Todo from '../models/Todo.js';
+import Checkout from '../models/Checkout.js';
+import { Transaction } from '../models/Accounting.js';
+import HealthTracker from '../models/HealthTracker.js';
 import type { ISignupData } from '../models/SignupData.js';
 import type { ISigninData } from '../models/SigninData.js';
 import type { IContact } from '../models/Contact.js';
@@ -37,12 +40,20 @@ interface DashboardStats {
     totalGoals: number;
     totalTasks: number;
     totalTodos: number;
+    totalCheckouts: number;
+    totalTransactions: number;
+    totalHealthRecords: number;
   };
   recentSignups: Partial<ISignupData>[];
   recentContacts: Partial<IContact>[];
   workshopStats: {
     totalEnrolled: number;
     avgRating: number;
+  };
+  financialStats: {
+    totalRevenue: number;
+    totalExpense: number;
+    netBalance: number;
   };
 }
 
@@ -77,6 +88,9 @@ router.get('/dashboard-stats', async (req: Request, res: Response<{ success: boo
       totalGoals,
       totalTasks,
       totalTodos,
+      totalCheckouts,
+      totalTransactions,
+      totalHealthRecords,
     ] = await Promise.all([
       SignupData.countDocuments(),
       SigninData.countDocuments(),
@@ -88,6 +102,9 @@ router.get('/dashboard-stats', async (req: Request, res: Response<{ success: boo
       Goal.countDocuments(),
       Task.countDocuments(),
       Todo.countDocuments(),
+      Checkout.countDocuments(),
+      Transaction.countDocuments(),
+      HealthTracker.countDocuments(),
     ]);
 
     // Get recent signups
@@ -107,6 +124,25 @@ router.get('/dashboard-stats', async (req: Request, res: Response<{ success: boo
       },
     ]);
 
+    // Get financial stats
+    const financialData = await Transaction.aggregate([
+      {
+        $group: {
+          _id: null,
+          totalIncome: {
+            $sum: {
+              $cond: [{ $eq: ['$type', 'income'] }, '$amount', 0],
+            },
+          },
+          totalExpense: {
+            $sum: {
+              $cond: [{ $eq: ['$type', 'expense'] }, '$amount', 0],
+            },
+          },
+        },
+      },
+    ]);
+
     console.log('✅ Dashboard stats retrieved from MongoDB');
 
     const data: DashboardStats = {
@@ -121,10 +157,18 @@ router.get('/dashboard-stats', async (req: Request, res: Response<{ success: boo
         totalGoals,
         totalTasks,
         totalTodos,
+        totalCheckouts,
+        totalTransactions,
+        totalHealthRecords,
       },
       recentSignups,
       recentContacts,
       workshopStats: workshopStats[0] || { totalEnrolled: 0, avgRating: 0 },
+      financialStats: {
+        totalRevenue: financialData[0]?.totalIncome || 0,
+        totalExpense: financialData[0]?.totalExpense || 0,
+        netBalance: (financialData[0]?.totalIncome || 0) - (financialData[0]?.totalExpense || 0),
+      },
     };
 
     res.json({

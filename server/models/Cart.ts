@@ -2,8 +2,8 @@ import mongoose, { Schema, Document } from 'mongoose';
 import { v4 as uuidv4 } from 'uuid';
 
 export interface ICartItem {
-  id: number;
-  workshopId: number;
+  id?: number;
+  workshopId: string;
   workshopTitle: string;
   instructor: string;
   price: number;
@@ -20,7 +20,7 @@ export interface ICart extends Document {
   totalItems?: number;
   totalPrice?: number;
   status: 'active' | 'purchased' | 'abandoned' | 'cleared';
-  currencyBreakdown?: Map<string, { total: number; count: number; items: number[] }>;
+  currencyBreakdown?: Map<string, { total: number; count: number; items: string[] }>;
   lastModified?: Date;
   createdAt?: Date;
   purchasedAt?: Date | null;
@@ -35,8 +35,7 @@ export interface ICart extends Document {
 
 const cartItemSchema = new Schema<ICartItem>(
   {
-    id: { type: Number, required: true },
-    workshopId: { type: Number, required: true },
+    workshopId: { type: String, required: true },
     workshopTitle: { type: String, required: true },
     instructor: { type: String, required: true },
     price: { type: Number, required: true },
@@ -83,14 +82,5 @@ cartSchema.index({ userId: 1, status: 1 });
 cartSchema.index({ email: 1, status: 1 });
 cartSchema.index({ status: 1, lastModified: -1 });
 cartSchema.index({ createdAt: -1 });
-
-cartSchema.pre('save', function (this: any, next: any) {
-  if (this.items && this.items.length > 0) {
-    this.totalItems = this.items.reduce((sum: number, item: ICartItem) => sum + item.quantity, 0);
-    this.totalPrice = this.items.reduce((sum: number, item: ICartItem) => sum + item.price * item.quantity, 0);
-  }
-  this.lastModified = new Date();
-  next();
-});
 
 export default mongoose.model<ICart>('Cart', cartSchema);
