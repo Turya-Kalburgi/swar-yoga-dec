@@ -1,6 +1,7 @@
 import express, { Request, Response, Router } from 'express';
 import User from '../models/User.js';
 import SignupData from '../models/SignupData';
+import SigninData from '../models/SigninData';
 import crypto from 'crypto';
 import type { IUser } from '../models/User.js';
 
@@ -119,6 +120,21 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
     }
 
     console.log(`✅ User login: ${email}`);
+    
+    // Save signin data for analytics
+    try {
+      const signinRecord = new SigninData({
+        email: normalizedEmail,
+        timestamp: new Date(),
+        status: 'success'
+      });
+      
+      await signinRecord.save();
+      console.log(`✅ Signin data saved for: ${email}`);
+    } catch (signinError) {
+      console.log(`⚠️  SigninData save failed for ${email}:`, signinError instanceof Error ? signinError.message : 'Unknown error');
+    }
+    
     res.json({ success: true, message: 'Login successful', userId: user.userId });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
