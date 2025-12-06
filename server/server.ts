@@ -19,6 +19,7 @@ import contactRoutes from './routes/contact.js';
 import milestoneRoutes from './routes/milestones.js';
 import reminderRoutes from './routes/reminders.js';
 import dailyPlanRoutes from './routes/dailyplans.js';
+import accountingRoutes from './routes/accounting';
 import connectDB from './config/db.js';
 import { 
   createDailyBackup, 
@@ -116,6 +117,7 @@ app.use('/api/admin-mongo', adminMongoRoutes);
 
 // ===== ADMIN SYSTEM ROUTES =====
 app.use('/api/admin', adminRoutes);
+app.use('/api/accounting', accountingRoutes);
 app.use('/api/milestones', milestoneRoutes);
 app.use('/api/reminders', reminderRoutes);
 app.use('/api/contact', contactRoutes);
