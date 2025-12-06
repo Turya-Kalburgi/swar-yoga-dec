@@ -90,7 +90,7 @@ app.use(express.json());
 
 // ===== ROOT ENDPOINT =====
 app.get('/', (req: Request, res: Response): void => {
-  res.json({ message: 'Swar Yoga Backend API - Running on Render', timestamp: new Date().toISOString() });
+  res.json({ message: 'Swar Yoga Backend API - MongoDB Atlas Edition', timestamp: new Date().toISOString() });
 });
 
 // ⭐ IMPORTANT: Workshop Routes MUST come FIRST before generic routes

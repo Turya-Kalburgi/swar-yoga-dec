@@ -3,7 +3,16 @@
  * This module handles all API calls to the admin workshop endpoints
  */
 
-const API_BASE_URL = 'https://swar-yoga-dec.onrender.com/api/admin/workshops';
+const getAPIUrl = () => {
+  const envUrl = (import.meta as any).env?.VITE_API_URL;
+  if (envUrl) return envUrl;
+  
+  const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  if (isDev) return 'http://localhost:3001/api';
+  return 'https://api.swaryoga.online/api';
+};
+
+const API_BASE_URL = `${getAPIUrl()}/admin/workshops`;
 
 export interface WorkshopBatch {
   id?: string;

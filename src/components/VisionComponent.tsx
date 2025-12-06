@@ -23,7 +23,7 @@ const VisionComponent: React.FC<VisionComponentProps> = ({ onVisionsUpdate }) =>
     timelineMonths: 12,
     startDate: new Date().toISOString().split('T')[0],
     targetDate: new Date(new Date().setMonth(new Date().getMonth() + 12)).toISOString().split('T')[0],
-    status: 'Active' as 'Active' | 'Completed' | 'On Hold'
+    status: 'Active' as 'Active' | 'Completed' | 'On Hold' | 'Not Started' | 'In Progress'
   });
 
   useEffect(() => {

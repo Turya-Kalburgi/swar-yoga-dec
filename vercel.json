@@ -5,10 +5,6 @@
   "trailingSlash": false,
   "rewrites": [
     {
-      "source": "/api/(.*)",
-      "destination": "https://swar-yoga-dec.onrender.com/api/$1"
-    },
-    {
       "source": "/((?!.*\\..*).*)",
       "destination": "/index.html"
     }

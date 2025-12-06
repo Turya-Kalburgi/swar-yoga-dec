@@ -71,7 +71,7 @@ const AdminSignIn = () => {
     setLoading(true);
 
     try {
-      const API_URL = (import.meta as any).env.VITE_API_URL || 'https://swar-yoga-dec.onrender.com/api';
+      const API_URL = (import.meta as any).env.VITE_API_URL || (window.location.hostname === 'localhost' ? 'http://localhost:3001/api' : 'https://api.swaryoga.online/api');
 
       const response = await fetch(`${API_URL}/admin/signin`, {
         method: 'POST',

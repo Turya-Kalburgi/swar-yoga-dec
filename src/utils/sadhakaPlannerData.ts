@@ -4,13 +4,18 @@ import axios from 'axios';
 
 // Determine API URL based on environment
 const getAPIUrl = () => {
+  // Check environment variable first
+  const envUrl = (import.meta as any).env?.VITE_API_URL;
+  if (envUrl) return envUrl;
+  
   // Check if running in development or production
   const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
   
   if (isDev) {
     return 'http://localhost:3001/api'; // Local development
   } else {
-    return 'https://swar-yoga-dec.onrender.com/api'; // Production
+    // Production should have VITE_API_URL set
+    return 'https://api.swaryoga.online/api'; // Production fallback
   }
 };
 
@@ -45,6 +50,10 @@ export interface Vision {
   description: string;
   priority?: 'High' | 'Medium' | 'Low';
   status?: 'Active' | 'Completed' | 'On Hold' | 'Not Started' | 'In Progress';
+  imageUrl?: string;
+  timelineMonths?: number;
+  startDate?: string;
+  targetDate?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -55,6 +64,7 @@ export interface Goal {
   userId: string;
   title: string;
   description: string;
+  visionId?: string;
   priority?: 'High' | 'Medium' | 'Low';
   status?: 'Not Started' | 'In Progress' | 'Completed';
   progress?: number;
@@ -84,6 +94,7 @@ export interface Task {
   priority?: 'High' | 'Medium' | 'Low';
   startDate?: string;
   dueDate?: string;
+  recurrence?: 'Once' | 'Daily' | 'Weekly' | 'Monthly' | 'Yearly';
   status?: 'Pending' | 'In Progress' | 'Completed';
   isOverdue?: boolean;
   createdAt?: string;
@@ -97,6 +108,7 @@ export interface MyWord {
   commitment: string;
   committedDate?: string;
   completionDeadline?: string;
+  recurrence?: 'Once' | 'Daily' | 'Weekly' | 'Monthly' | 'Yearly';
   status?: 'Pending' | 'In Progress' | 'Completed';
   isOverdue?: boolean;
   createdAt?: string;
