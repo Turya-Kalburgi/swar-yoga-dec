@@ -190,7 +190,7 @@ const SignUpPage = () => {
         const userData = { 
           email: normalizedEmail, 
           name: formData.name, 
-          id: btoa(normalizedEmail).replace(/=/g, "").substring(0, 20), 
+          id: normalizedEmail, // Use email as ID for backend compatibility
           isNewUser: true 
         };
         login(userData as any);

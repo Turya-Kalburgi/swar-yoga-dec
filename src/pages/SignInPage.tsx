@@ -104,7 +104,7 @@ const SignInPage = () => {
           const userData = { 
             email: normalizedEmail, 
             name: user?.name || normalizedEmail.split('@')[0], 
-            id: btoa(normalizedEmail).replace(/=/g, "").substring(0, 20) 
+            id: normalizedEmail // Use email as ID for backend compatibility
           };
           login(userData as any);
           setSubmitStatus('success');

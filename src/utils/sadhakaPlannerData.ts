@@ -641,13 +641,15 @@ export const todoAPI = {
   }
 };
 
-// REMINDERS API
+// REMINDERS API - Using Backend
 export const reminderAPI = {
   getAll: async (userId: string) => {
     try {
-      const storageKey = getUserStorageKey(STORAGE_KEY_REMINDERS, userId);
-      const stored = localStorage.getItem(storageKey);
-      return stored ? JSON.parse(stored) : [];
+      const response = await axios.get(`${API_URL}/reminders`, {
+        headers: { 'X-User-ID': userId }
+      });
+      console.log(`📂 Loaded ${response.data.length || 0} reminders for user ${userId}`);
+      return response.data || [];
     } catch (error) {
       console.error('Error fetching reminders:', error);
       return [];
@@ -666,60 +668,50 @@ export const reminderAPI = {
 
   create: async (data: Reminder) => {
     try {
-      const storageKey = getUserStorageKey(STORAGE_KEY_REMINDERS, data.userId);
-      const reminders = JSON.parse(localStorage.getItem(storageKey) || '[]');
-      const newReminder = {
-        ...data,
-        id: generateId(),
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-      reminders.push(newReminder);
-      localStorage.setItem(storageKey, JSON.stringify(reminders));
-      return newReminder;
+      const response = await axios.post(`${API_URL}/reminders`, data, {
+        headers: { 'X-User-ID': data.userId }
+      });
+      console.log('✅ Reminder created:', response.data);
+      return response.data;
     } catch (error: any) {
       console.error('Error creating reminder:', error);
-      throw new Error(error.message || 'Failed to create reminder');
+      throw new Error(error.response?.data?.message || 'Failed to create reminder');
     }
   },
 
   update: async (id: string, data: Partial<Reminder>) => {
     try {
-      if (!data.userId) throw new Error('userId is required');
-      const storageKey = getUserStorageKey(STORAGE_KEY_REMINDERS, data.userId);
-      const reminders = JSON.parse(localStorage.getItem(storageKey) || '[]');
-      const index = reminders.findIndex((r: Reminder) => r.id === id);
-      if (index === -1) throw new Error('Reminder not found');
-      reminders[index] = { ...reminders[index], ...data, updatedAt: new Date().toISOString() };
-      localStorage.setItem(storageKey, JSON.stringify(reminders));
-      return reminders[index];
+      const response = await axios.put(`${API_URL}/reminders/${id}`, data, {
+        headers: { 'X-User-ID': data.userId }
+      });
+      return response.data;
     } catch (error: any) {
       console.error('Error updating reminder:', error);
-      throw new Error(error.message || 'Failed to update reminder');
+      throw new Error(error.response?.data?.message || 'Failed to update reminder');
     }
   },
 
   delete: async (id: string, userId: string) => {
     try {
-      const storageKey = getUserStorageKey(STORAGE_KEY_REMINDERS, userId);
-      const reminders = JSON.parse(localStorage.getItem(storageKey) || '[]');
-      const filtered = reminders.filter((r: Reminder) => r.id !== id);
-      localStorage.setItem(storageKey, JSON.stringify(filtered));
+      await axios.delete(`${API_URL}/reminders/${id}`, {
+        headers: { 'X-User-ID': userId }
+      });
       return true;
     } catch (error: any) {
       console.error('Error deleting reminder:', error);
-      throw new Error(error.message || 'Failed to delete reminder');
+      throw new Error(error.response?.data?.message || 'Failed to delete reminder');
     }
   }
 };
 
-// DAILY PLAN API
+// DAILY PLAN API - Using Backend
 export const dailyPlanAPI = {
   getByDate: async (userId: string, date: string) => {
     try {
-      const storageKey = getUserStorageKey(STORAGE_KEY_DAILY_PLANS, userId);
-      const plans = JSON.parse(localStorage.getItem(storageKey) || '[]');
-      return plans.find((p: DailyPlan) => p.date === date) || null;
+      const response = await axios.get(`${API_URL}/dailyplans/${date}`, {
+        headers: { 'X-User-ID': userId }
+      });
+      return response.data || null;
     } catch (error) {
       console.error('Error fetching daily plan:', error);
       return null;
@@ -728,47 +720,38 @@ export const dailyPlanAPI = {
 
   create: async (data: DailyPlan) => {
     try {
-      const storageKey = getUserStorageKey(STORAGE_KEY_DAILY_PLANS, data.userId);
-      const plans = JSON.parse(localStorage.getItem(storageKey) || '[]');
-      const newPlan = {
-        ...data,
-        id: generateId(),
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-      plans.push(newPlan);
-      localStorage.setItem(storageKey, JSON.stringify(plans));
-      return newPlan;
+      const response = await axios.post(`${API_URL}/dailyplans`, data, {
+        headers: { 'X-User-ID': data.userId }
+      });
+      console.log('✅ Daily plan created:', response.data);
+      return response.data;
     } catch (error: any) {
       console.error('Error creating daily plan:', error);
-      throw new Error(error.message || 'Failed to create daily plan');
+      throw new Error(error.response?.data?.message || 'Failed to create daily plan');
     }
   },
 
   update: async (id: string, data: Partial<DailyPlan>) => {
     try {
-      if (!data.userId) throw new Error('userId is required');
-      const storageKey = getUserStorageKey(STORAGE_KEY_DAILY_PLANS, data.userId);
-      const plans = JSON.parse(localStorage.getItem(storageKey) || '[]');
-      const index = plans.findIndex((p: DailyPlan) => p.id === id);
-      if (index === -1) throw new Error('Daily plan not found');
-      plans[index] = { ...plans[index], ...data, updatedAt: new Date().toISOString() };
-      localStorage.setItem(storageKey, JSON.stringify(plans));
-      return plans[index];
+      const response = await axios.put(`${API_URL}/dailyplans/${id}`, data, {
+        headers: { 'X-User-ID': data.userId }
+      });
+      return response.data;
     } catch (error: any) {
       console.error('Error updating daily plan:', error);
-      throw new Error(error.message || 'Failed to update daily plan');
+      throw new Error(error.response?.data?.message || 'Failed to update daily plan');
     }
   }
 };
 
-// HEALTH TRACKER API
+// HEALTH TRACKER API - Using Backend
 export const healthTrackerAPI = {
   getByDate: async (userId: string, date: string) => {
     try {
-      const storageKey = getUserStorageKey(STORAGE_KEY_HEALTH, userId);
-      const records = JSON.parse(localStorage.getItem(storageKey) || '[]');
-      return records.find((h: HealthTracker) => h.date === date) || null;
+      const response = await axios.get(`${API_URL}/health/${date}`, {
+        headers: { 'X-User-ID': userId }
+      });
+      return response.data || null;
     } catch (error) {
       console.error('Error fetching health data:', error);
       return null;
@@ -777,14 +760,11 @@ export const healthTrackerAPI = {
 
   getRange: async (userId: string, startDate: string, endDate: string) => {
     try {
-      const storageKey = getUserStorageKey(STORAGE_KEY_HEALTH, userId);
-      const records = JSON.parse(localStorage.getItem(storageKey) || '[]');
-      const start = new Date(startDate).getTime();
-      const end = new Date(endDate).getTime();
-      return records.filter((h: HealthTracker) => {
-        const date = new Date(h.date).getTime();
-        return date >= start && date <= end;
+      const response = await axios.get(`${API_URL}/health`, {
+        params: { startDate, endDate },
+        headers: { 'X-User-ID': userId }
       });
+      return response.data || [];
     } catch (error) {
       console.error('Error fetching health range:', error);
       return [];
@@ -793,36 +773,26 @@ export const healthTrackerAPI = {
 
   create: async (data: HealthTracker) => {
     try {
-      const storageKey = getUserStorageKey(STORAGE_KEY_HEALTH, data.userId);
-      const records = JSON.parse(localStorage.getItem(storageKey) || '[]');
-      const newRecord = {
-        ...data,
-        id: generateId(),
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-      records.push(newRecord);
-      localStorage.setItem(storageKey, JSON.stringify(records));
-      return newRecord;
+      const response = await axios.post(`${API_URL}/health`, data, {
+        headers: { 'X-User-ID': data.userId }
+      });
+      console.log('✅ Health record created:', response.data);
+      return response.data;
     } catch (error: any) {
       console.error('Error creating health record:', error);
-      throw new Error(error.message || 'Failed to create health record');
+      throw new Error(error.response?.data?.message || 'Failed to create health record');
     }
   },
 
   update: async (id: string, data: Partial<HealthTracker>) => {
     try {
-      if (!data.userId) throw new Error('userId is required');
-      const storageKey = getUserStorageKey(STORAGE_KEY_HEALTH, data.userId);
-      const records = JSON.parse(localStorage.getItem(storageKey) || '[]');
-      const index = records.findIndex((h: HealthTracker) => h.id === id);
-      if (index === -1) throw new Error('Health record not found');
-      records[index] = { ...records[index], ...data, updatedAt: new Date().toISOString() };
-      localStorage.setItem(storageKey, JSON.stringify(records));
-      return records[index];
+      const response = await axios.put(`${API_URL}/health/${id}`, data, {
+        headers: { 'X-User-ID': data.userId }
+      });
+      return response.data;
     } catch (error: any) {
       console.error('Error updating health record:', error);
-      throw new Error(error.message || 'Failed to update health record');
+      throw new Error(error.response?.data?.message || 'Failed to update health record');
     }
   }
 };
